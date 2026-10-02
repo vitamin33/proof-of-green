@@ -2,6 +2,7 @@
 
 Raw output is only read here, never returned or stored.
 """
+import os
 import re
 import shlex
 
@@ -56,9 +57,8 @@ SECRET_NAME = r"[A-Za-z_]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|AUTH|CREDENTIA
 REDACTIONS = [
     (re.compile(r"(?<![\w-])(" + SECRET_NAME + r")=(\"[^\"]*\"|'[^']*'|\S+)", re.I), r"\1=***"),
     (re.compile(r"(\w+://)[^\s/@:]+:[^\s/@]+@"), r"\1***@"),
-    (re.compile(r"((?:token|password|passwd|secret|api_?key|access_?key)=)[^\s&'\"]+", re.I), r"\1***"),
-    (re.compile(r"(--(?:password|passwd|token|api-key|apikey|secret)(?:=|\s+))(\"[^\"]*\"|'[^']*'|\S+)", re.I), r"\1***"),
-    (re.compile(r"(?<!\S)(-p)\s+(?!-)(\"[^\"]*\"|'[^']*'|\S+)"), r"\1 ***"),
+    (re.compile(r"((?<!-)(?:token|password|passwd|secret|api_?key|access_?key)=)[^\s&'\"]+", re.I), r"\1***"),
+    (re.compile(r"(--(?:token|api-key|apikey|secret)(?:=|\s+))(\"[^\"]*\"|'[^']*'|\S+)", re.I), r"\1***"),
     (re.compile(r"\b(mysql|mariadb|mysqldump)\b([^|;&]*?\s)-p(?!\*)\S+"), r"\1\2-p***"),
     (re.compile(r"(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+", re.I), r"\1 ***"),
     (re.compile(r"\b(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{10,}|github_pat_\w{10,}|"
@@ -66,10 +66,22 @@ REDACTIONS = [
 ]
 
 
-def redact(command, limit=240):
+# -p / --password: redacted unless the value is an existing path (mkdir -p build, cp -p a b).
+PATH_OR_SECRET = re.compile(r"((?<!\S)-p\s+(?!-)|--(?:password|passwd)(?:=|\s+))(\"[^\"]*\"|'[^']*'|\S+)", re.I)
+
+
+def _is_path(value, cwd):
+    value = os.path.expanduser(value.strip("'\""))
+    if not value:
+        return False
+    return os.path.exists(value if os.path.isabs(value) else os.path.join(cwd or os.getcwd(), value))
+
+
+def redact(command, cwd=None, limit=240):
     out = command or ""
     for rx, repl in REDACTIONS:
         out = rx.sub(repl, out)
+    out = PATH_OR_SECRET.sub(lambda m: m.group(0) if _is_path(m.group(2), cwd) else m.group(1) + "***", out)
     out = " ".join(out.split())
     return out if len(out) <= limit else out[:limit] + "…"
 
@@ -271,7 +283,8 @@ def parse_bash(payload, test_command=None):
     resp, text = response_text(payload)
     code = None if background else exit_code(payload, resp, text)
     runner, seg = detect_runner(command, test_command)
-    rec = {"command": redact(command), "exit_code": code}
+    cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else None
+    rec = {"command": redact(command, cwd), "exit_code": code}
     if not runner:
         rec["kind"] = "other"
         if DEPLOY.search(command):

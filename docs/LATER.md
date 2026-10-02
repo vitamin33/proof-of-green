@@ -21,4 +21,3 @@ Found while building v0:
 - Ledger size. Each hook reads the whole session file (about 50 ms per hook at 1,000 records). A very long session may need a small state file or a tail read.
 - Windows. Locking uses `fcntl`; on Windows appends still work but `seq` can repeat under concurrent subagents.
 - `marketplace.json` in the repo, so people can install from GitHub before the directory listing.
-- `mkdir -p dir` is redacted to `mkdir -p ***` because `-p <value>` is treated as a password. Harmless, but noisy in the ledger.

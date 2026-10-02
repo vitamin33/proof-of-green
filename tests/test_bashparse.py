@@ -154,6 +154,29 @@ def test_redaction(raw, secret):
     assert secret not in out and "***" in out
 
 
-def test_redaction_keeps_harmless_commands():
-    assert bp.redact("pytest -q tests/") == "pytest -q tests/"
-    assert bp.redact("mkdir -p build && make test") == "mkdir -p *** && make test"
+def test_redaction_keeps_harmless_commands(tmp_path):
+    (tmp_path / "build").mkdir()
+    (tmp_path / "a.txt").write_text("x")
+    cwd = str(tmp_path)
+    assert bp.redact("pytest -q tests/", cwd) == "pytest -q tests/"
+    assert bp.redact("mkdir -p build && make test", cwd) == "mkdir -p build && make test"
+    assert bp.redact("mkdir -p %s/build" % cwd, "/") == "mkdir -p %s/build" % cwd
+    assert bp.redact("cp -p a.txt build/", cwd) == "cp -p a.txt build/"
+    assert bp.redact("tool --password build", cwd) == "tool --password build"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("mysql -u root -p hunter2 db", "mysql -u root -p *** db"),
+    ("psql --password=hunter2 -h db", "psql --password=*** -h db"),
+    ("tool --password 'not a path'", "tool --password ***"),
+    ("mkdir -p does/not/exist", "mkdir -p ***"),
+    ("pytest -p no:cacheprovider", "pytest -p ***"),
+])
+def test_p_and_password_redacted_unless_existing_path(raw, expected, tmp_path):
+    assert bp.redact(raw, str(tmp_path)) == expected
+
+
+def test_parse_bash_uses_payload_cwd(tmp_path):
+    (tmp_path / "out").mkdir()
+    rec = bp.parse_bash({"cwd": str(tmp_path), "tool_input": {"command": "mkdir -p out"}})
+    assert rec["command"] == "mkdir -p out"
