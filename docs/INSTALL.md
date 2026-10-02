@@ -25,7 +25,7 @@ Both commands default to user scope, so the plugin runs in every project. To try
 
 The install prints `2 userConfig options not yet set`. That is expected. Unset means observe mode and no `test_command`.
 
-Restart Claude Code after installing.
+Restart Claude Code after installing, including sessions that are already open. A session that was open during the install starts recording mid-way: its file has no `session` record, so the report lists it under project `------`, and its turns count from the first prompt after the install. (Seen 2026-10-02: two sessions open at install time produced such files within a minute.)
 
 ## Turn on warnings
 
@@ -89,4 +89,10 @@ Run from a scratch repo with `--scope local`, from the local repo path:
 - `update` with the same version printed `already at the latest version (0.1.0)`. After changing the version to 0.1.1 it printed `updated from 0.1.0 to 0.1.1`, and the new file was in the `0.1.1` cache folder.
 - `uninstall` removed the data folder and the install record. The cache folder stayed.
 
-Not checked: adding the marketplace from GitHub (the repo is not pushed yet), user scope, `/plugin configure` and `--values-stdin` (both write your user settings file), and whether the data folder survives an update.
+Then, at user scope from a clean clone (`git clone` of the local repo into `~/src/proof-of-green`):
+
+- `marketplace add ~/src/proof-of-green` printed `(declared in user settings)`. `install` printed `(scope: user)`. The cache copy was 348 KB.
+- A headless session in a scratch project wrote a ledger file to `proof-of-green-proof-of-green/sessions/` with `"mode":"observe"` and the project stored as a hash.
+- Update survival (local scope, scratch): a session written on 0.1.0 kept the same sha1 after updating to 0.1.1, and a new 0.1.1 session wrote into the same folder.
+
+Not checked: adding the marketplace from GitHub (the repo is not pushed yet), and `/plugin configure` and `--values-stdin` (both write your user settings file).

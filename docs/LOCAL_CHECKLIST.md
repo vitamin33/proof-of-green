@@ -121,6 +121,16 @@ Short record of what was checked for the one-week observe run, and how to re-che
 
 "After" means `seq` and `turn` are read from the last line instead of the whole file. Stop still reads the whole file once, to grade claims. Bare interpreter start was 25 ms (3.9) and 19 ms (3.14).
 
+## 10. Observe week: daily check
+
+```bash
+cat ~/.claude/plugins/data/proof-of-green-proof-of-green/errors.log 2>/dev/null || echo "no errors"
+python3 ~/src/proof-of-green/scripts/report.py --all --data ~/.claude/plugins/data/proof-of-green-proof-of-green
+grep -h '"kind":"test_run"' ~/.claude/plugins/data/proof-of-green-proof-of-green/sessions/*.jsonl | grep '"collected":null' | python3 -c 'import json,sys; [print(r.get("runner"), "|", r.get("flags"), "|", r.get("command")) for r in map(json.loads, sys.stdin)]' | sort | uniq -c | sort -rn | head -20
+```
+
+Pass: `no errors`. The report's `unparsed test runs` count is small next to the total runs. The third command lists each unparsed command with its count. Runs with `run_in_background` in the flags are expected there, because their output never reaches the hook. Anything else that repeats is a runner output format to add.
+
 ## Clean up
 
 ```bash
