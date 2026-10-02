@@ -49,7 +49,7 @@ SUSPICIOUS = [
 
 # runner -> narrowing flags (scope "partial")
 NARROW = r"(?:^|\s)(?:-k|-t|-m|-run|--filter|--tests|--testNamePattern|--testPathPattern|" \
-         r"--test-name-pattern|--plain-name|--name|-Dtest|-only-testing|--only-testing|--exact|-e)(?:[=\s]|$)"
+         r"--test-name-pattern|--plain-name|--name|-Dtest|-only-testing|--only-testing|--exact|-e)(?:[=:\s]|$)"
 FULL_DIRS = {"test", "tests", "spec", "__tests__", "./...", "...", "./"}
 
 SECRET_NAME = r"[A-Za-z_]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|AUTH|CREDENTIAL)[A-Za-z0-9_]*"
@@ -94,14 +94,16 @@ def detect_runner(command, test_command=None):
         return "custom", test_command.strip()
     for seg in segments(command):
         for name, rx in RUNNERS:
-            if re.search(rx, seg):
-                return name, seg
+            m = re.search(rx, seg)
+            if m:
+                return (seg.split()[0] + " test" if name == "npm test" else name), seg
     return None, None
 
 
 def detect_scope(runner, seg):
     if runner == "custom":
         return "all"
+    seg = re.sub(r"^python[\d.]*\s+-m\s+", "", seg)
     if re.search(NARROW, seg) or "::" in seg:
         return "partial"
     try:
@@ -112,8 +114,8 @@ def detect_scope(runner, seg):
     words = []
     skip = False
     for tok in toks[1:]:
-        if skip:
-            skip = False
+        if skip or re.match(r"^\d*[<>]", tok):
+            skip = tok in (">", ">>", "<", "2>")
             continue
         if tok.startswith("-"):
             skip = tok in ("-c", "--config", "-p", "--reporter", "--maxfail", "-n", "--workers",

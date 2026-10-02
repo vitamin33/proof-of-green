@@ -23,6 +23,8 @@ PATTERNS = [
       "The test suite passes."),
     P("tests_pass", r"\b(\d+)(?:/\1)?\s+(?:tests?\s+)?pass(?:ed|ing)\b(?![^.]*\b[1-9]\d*\s+(?:failed|failing|errors?)\b)",
       "42 passed, 0 failed."),
+    P("tests_pass", r"\b(?:test_\w+|\w+_test|[\w-]+\.(?:spec|test)\.\w+|\w+Tests?)\s+(?:now\s+)?pass(?:es|ed)\b",
+      "test_login passes now."),
     P("tests_pass", r"\beverything\s+(?:is\s+)?(?:green|passes|passing)\b", "Everything is green."),
     P("tests_pass", r"\bshould\s+now\s+pass\b", "The tests should now pass."),
     P("tests_pass", r"(?:усі|всі)?\s*(?:\d+\s+)?(?:\w+\s+)?тест(?:и|ів)?\s+(?:тепер\s+|успішно\s+)?"
