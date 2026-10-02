@@ -54,11 +54,9 @@ def _git_head(cwd):
         return None
 
 
-def _session_cwd(records, payload):
-    for rec in records:
-        if rec.get("kind") == "session" and rec.get("cwd"):
-            return rec["cwd"]
-    return payload.get("cwd")
+def _session_cwd(sid, payload):
+    rec = ledger.first_session(ledger.session_path(sid))
+    return rec["cwd"] if rec else payload.get("cwd")
 
 
 def on_session_start(p):
@@ -82,8 +80,7 @@ def on_edit(p):
     if not isinstance(path, str) or not path:
         return
     sid = p.get("session_id")
-    records = ledger.read(ledger.session_path(sid))
-    path, is_test, code = classify(path, _session_cwd(records, p))
+    path, is_test, code = classify(path, _session_cwd(sid, p))
     ledger.append(sid, {"kind": "edit", "path": path, "is_test": is_test, "code": code})
 
 

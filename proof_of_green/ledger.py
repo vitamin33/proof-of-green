@@ -62,30 +62,77 @@ def current_turn(records):
     return turn
 
 
+def _last_record(fh, size):
+    """Last complete record of the file, read from the tail. None if it cannot be parsed."""
+    block = 4096
+    while True:
+        start = max(0, size - block)
+        fh.seek(start)
+        chunk = fh.read(size - start)
+        lines = chunk.rstrip(b"\n").split(b"\n")
+        if len(lines) > 1 or start == 0:
+            try:
+                rec = json.loads(lines[-1].decode("utf-8"))
+            except ValueError:
+                return None
+            ok = isinstance(rec, dict) and isinstance(rec.get("seq"), int) and isinstance(rec.get("turn"), int)
+            return rec if ok else None
+        block *= 4
+
+
 def append(session_id, record, new_turn=False):
-    """Append one record; fills seq, ts and turn. Returns (record, all_records)."""
+    """Append one record; fills seq, ts and turn. Returns the record written.
+
+    seq and turn come from the last line: every record carries the turn it was written in,
+    and seq only grows under the lock. A damaged last line falls back to a full read.
+    """
     path = session_path(session_id)
     if not path:
-        return None, []
+        return None
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a+", encoding="utf-8") as fh:
+    with open(path, "a+b") as fh:
         if fcntl:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
         try:
-            fh.seek(0)
-            records = _parse(fh)
-            seq = max([int(r.get("seq") or 0) for r in records] + [0]) + 1
-            turn = current_turn(records) + (1 if new_turn else 0)
-            rec = {"seq": seq, "ts": round(time.time(), 3), "turn": turn}
-            rec.update(record)
             fh.seek(0, os.SEEK_END)
-            fh.write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n")
+            size = fh.tell()
+            last = _last_record(fh, size) if size else None
+            if last is not None:
+                seq, turn = last["seq"], last["turn"]
+            elif size:
+                fh.seek(0)
+                records = _parse(line.decode("utf-8", "replace") for line in fh)
+                seq = max([int(r.get("seq") or 0) for r in records] + [0])
+                turn = current_turn(records)
+            else:
+                seq, turn = 0, 0
+            rec = {"seq": seq + 1, "ts": round(time.time(), 3), "turn": turn + (1 if new_turn else 0)}
+            rec.update(record)
+            line = (json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+            if size:
+                fh.seek(size - 1)
+                if fh.read(1) != b"\n":  # a crashed writer left half a line; start a fresh one
+                    line = b"\n" + line
+            fh.seek(0, os.SEEK_END)
+            fh.write(line)
             fh.flush()
         finally:
             if fcntl:
                 fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-    records.append(rec)
-    return rec, records
+    return rec
+
+
+def first_session(path):
+    """First session record in the file, without parsing the other lines."""
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if '"kind":"session"' in line:
+                recs = _parse([line])
+                if recs and recs[0].get("cwd"):
+                    return recs[0]
+    return None
 
 
 def log_error(where, exc):
