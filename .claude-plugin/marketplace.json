@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "proof-of-green",
+  "description": "proof-of-green: flags completion claims that have no test run after the last edit.",
+  "owner": {"name": "Vitalii Serbyn"},
+  "plugins": [
+    {
+      "name": "proof-of-green",
+      "description": "Flags when Claude says tests pass, done or fixed but never ran the tests after its last edit. Local, no blocking.",
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}

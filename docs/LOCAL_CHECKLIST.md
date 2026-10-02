@@ -11,10 +11,11 @@ export FG=~/research/false-green-agent-plugin      # path to this repo
 ## 1. Validate the manifest
 
 ```bash
-cd "$FG" && claude plugin validate --strict .
+cd "$FG" && claude plugin validate --strict .claude-plugin/plugin.json
+cd "$FG" && claude plugin validate --strict .claude-plugin/marketplace.json
 ```
 
-Pass: `✔ Validation passed`. (2026-10-02: passed.)
+Pass: `✔ Validation passed` twice. With `marketplace.json` in the repo, `validate .` checks only the marketplace manifest, so name both files. (2026-10-02: both passed.)
 
 ## 2. Unit tests
 
