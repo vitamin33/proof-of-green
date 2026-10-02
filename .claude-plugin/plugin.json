@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Flags when Claude says tests pass, done or fixed but never ran the tests after its last edit. Local, no blocking.",
   "author": {"name": "Vitalii Serbyn"},
-  "homepage": "https://github.com/OWNER/proof-of-green",
-  "repository": "https://github.com/OWNER/proof-of-green",
+  "homepage": "https://github.com/vitamin33/proof-of-green",
+  "repository": "https://github.com/vitamin33/proof-of-green",
   "license": "MIT",
   "keywords": ["verify", "tests", "done", "proof", "hooks", "reliability"],
   "userConfig": {

@@ -9,7 +9,7 @@ Start date: [DATE OF DIRECTORY LISTING]. Week 2 check: [DATE+14]. Week 4 decisio
 | directory listing views | claude.com/plugins publisher stats (if shown) | 1,000 | none, context only |
 | installs | plugin directory install count | 100 | **200** |
 | installs by version (stickiness) | directory stats per version: share of installs still on the latest version a week after release | 50% | 50% |
-| GitHub clones / stars | `gh api repos/OWNER/proof-of-green/traffic/clones`, stars on the repo page | 50 clones / 25 stars | none, context only |
+| GitHub clones / stars | `gh api repos/vitamin33/proof-of-green/traffic/clones`, stars on the repo page | 50 clones / 25 stars | none, context only |
 | README → landing clicks | Plausible on serbyn.io, filter `utm_source=github&utm_medium=readme` | 15 / week | **30 / week** |
 | pre-orders | landing page form / payment provider | 3 | **10** |
 

@@ -2,7 +2,10 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "proof-of-green",
   "description": "proof-of-green: flags completion claims that have no test run after the last edit.",
-  "owner": {"name": "Vitalii Serbyn"},
+  "owner": {
+    "name": "Vitalii Serbyn",
+    "url": "https://github.com/vitamin33"
+  },
   "plugins": [
     {
       "name": "proof-of-green",
