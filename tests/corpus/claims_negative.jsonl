@@ -1,0 +1,54 @@
+{"text": "I'll run the tests next.", "lang": "en"}
+{"text": "Let me run the test suite to check.", "lang": "en"}
+{"text": "Should I deploy this to staging?", "lang": "en"}
+{"text": "Do the tests pass on your machine?", "lang": "en"}
+{"text": "The tests don't pass yet — two failures in `test_export`.", "lang": "en"}
+{"text": "Tests are not passing: 3 failed, 39 passed.", "lang": "en"}
+{"text": "42 passed, 1 failed.", "lang": "en"}
+{"text": "Once the tests pass, I'll open the PR.", "lang": "en"}
+{"text": "If this fixes the issue, we can remove the workaround.", "lang": "en"}
+{"text": "When the build is green, merge it.", "lang": "en"}
+{"text": "I'm going to fix the null check in `parse()`.", "lang": "en"}
+{"text": "Next, I'll verify the redirect.", "lang": "en"}
+{"text": "Make sure the tests pass before merging.", "lang": "en"}
+{"text": "> All tests pass", "lang": "en"}
+{"text": "You said \"all tests pass\" on your machine, but CI disagrees.", "lang": "en"}
+{"text": "- Fix the race condition in the cache warmer", "lang": "en"}
+{"text": "Plan:\n- Run the tests\n- Deploy to staging", "lang": "en"}
+{"text": "Next steps:\n1. Implement retry logic\n2. Verify on staging", "lang": "en"}
+{"text": "I haven't run the tests.", "lang": "en"}
+{"text": "I couldn't verify the deploy because the token expired.", "lang": "en"}
+{"text": "The fix is not deployed yet.", "lang": "en"}
+{"text": "Nothing has been deployed.", "lang": "en"}
+{"text": "Can you confirm the tests pass locally?", "lang": "en"}
+{"text": "This might fix the flaky test.", "lang": "en"}
+{"text": "The tests should pass after we update the snapshot.", "lang": "en"}
+{"text": "Previously the tests passed, but the refactor broke two of them.", "lang": "en"}
+{"text": "The goal is to make all tests pass.", "lang": "en"}
+{"text": "Your task: get the test suite green.", "lang": "en"}
+{"text": "Is it working now?", "lang": "en"}
+{"text": "It still fails with a KeyError.", "lang": "en"}
+{"text": "Deploying to staging now.", "lang": "en"}
+{"text": "I need to fix the import cycle first.", "lang": "en"}
+{"text": "Here's what I changed and why.", "lang": "en"}
+{"text": "Run `npm test` to confirm everything is green.", "lang": "en"}
+{"text": "Not done yet: the migration still needs a backfill.", "lang": "en"}
+{"text": "The CI run failed on the lint step.", "lang": "en"}
+{"text": "Expected: all tests pass. Actual: 2 failures.", "lang": "en"}
+{"text": "Would you like me to deploy it?", "lang": "en"}
+{"text": "Done criteria: all tests green and docs updated.", "lang": "en"}
+{"text": "```\n$ pytest\n12 passed in 0.4s\n```", "lang": "en"}
+{"text": "Зараз запущу тести.", "lang": "uk"}
+{"text": "Ще не запускав тести.", "lang": "uk"}
+{"text": "Тести не проходять: 2 падіння.", "lang": "uk"}
+{"text": "Чи проходять тести у вас локально?", "lang": "uk"}
+{"text": "Якщо тести пройдуть, задеплою.", "lang": "uk"}
+{"text": "Як тільки CI буде зеленим, можна мерджити.", "lang": "uk"}
+{"text": "Потрібно виправити імпорт.", "lang": "uk"}
+{"text": "Перевірю редірект після деплою.", "lang": "uk"}
+{"text": "Не вдалося задеплоїти через прострочений токен.", "lang": "uk"}
+{"text": "План:\n- Виправити гонку\n- Запустити тести", "lang": "uk"}
+{"text": "Ви казали, що тести проходять, але CI червоний.", "lang": "uk"}
+{"text": "Спробую виправити це в наступному коміті.", "lang": "uk"}
+{"text": "Тести ще не зелені.", "lang": "uk"}
+{"text": "Тепер треба перевірити міграцію.", "lang": "uk"}

@@ -1,0 +1,53 @@
+{"text": "All 42 tests pass.", "types": ["tests_pass"], "lang": "en"}
+{"text": "Fixed the off-by-one in `paginate()`. The full suite passes now.", "types": ["fixed", "tests_pass"], "lang": "en"}
+{"text": "Done. The endpoint returns 404 for unknown ids.", "types": ["done"], "lang": "en"}
+{"text": "I've implemented the retry logic with exponential backoff.", "types": ["done"], "lang": "en"}
+{"text": "The migration is complete and the new column is backfilled.", "types": ["done"], "lang": "en"}
+{"text": "I fixed the race condition in the cache warmer.", "types": ["fixed"], "lang": "en"}
+{"text": "The bug is fixed: `parse_date` now handles timezone offsets.", "types": ["fixed"], "lang": "en"}
+{"text": "This fixes the flaky ordering in `test_export`.", "types": ["fixed"], "lang": "en"}
+{"text": "That should fix it.", "types": ["fixed"], "lang": "en"}
+{"text": "I verified the redirect for logged-out users.", "types": ["verified"], "lang": "en"}
+{"text": "Everything works as expected.", "types": ["verified"], "lang": "en"}
+{"text": "The login flow is working correctly now.", "types": ["verified"], "lang": "en"}
+{"text": "I deployed the fix to staging.", "types": ["deployed"], "lang": "en"}
+{"text": "The new build was deployed to production.", "types": ["deployed"], "lang": "en"}
+{"text": "It is now live at the preview URL.", "types": ["deployed"], "lang": "en"}
+{"text": "Tests are passing.", "types": ["tests_pass"], "lang": "en"}
+{"text": "pytest: 118 passed in 3.2s.", "types": ["tests_pass"], "lang": "en"}
+{"text": "Ran the suite again — 57/57 passing.", "types": ["tests_pass"], "lang": "en"}
+{"text": "The test suite is green.", "types": ["tests_pass"], "lang": "en"}
+{"text": "Everything is green.", "types": ["tests_pass"], "lang": "en"}
+{"text": "test_login passes now.", "types": ["tests_pass"], "lang": "en"}
+{"text": "The new tests pass.", "types": ["tests_pass"], "lang": "en"}
+{"text": "Fixed. All tests pass and the linter is clean.", "types": ["fixed", "tests_pass"], "lang": "en"}
+{"text": "I've finished the refactor of the auth module.", "types": ["done"], "lang": "en"}
+{"text": "The feature is done.", "types": ["done"], "lang": "en"}
+{"text": "All done!", "types": ["done"], "lang": "en"}
+{"text": "I have resolved the merge conflict in `config.ts`.", "types": ["fixed"], "lang": "en"}
+{"text": "The crash is gone after switching to a weak reference.", "types": ["fixed"], "lang": "en"}
+{"text": "I tested it locally with the sample payload.", "types": ["verified"], "lang": "en"}
+{"text": "Verified: the cache is invalidated on write.", "types": ["verified"], "lang": "en"}
+{"text": "Shipped to production.", "types": ["deployed"], "lang": "en"}
+{"text": "Successfully deployed to Vercel.", "types": ["deployed"], "lang": "en"}
+{"text": "I've completed the task: the CSV export now streams rows.", "types": ["done"], "lang": "en"}
+{"text": "CI is green.", "types": ["tests_pass"], "lang": "en"}
+{"text": "The regression is fixed and covered by a new test.", "types": ["fixed"], "lang": "en"}
+{"text": "Both tests pass now.", "types": ["tests_pass"], "lang": "en"}
+{"text": "## Summary\n- Fixed the timezone bug in `parse_date`\n- All 12 tests pass", "types": ["fixed", "tests_pass"], "lang": "en"}
+{"text": "Усі тести проходять.", "types": ["tests_pass"], "lang": "uk"}
+{"text": "Тести пройшли успішно.", "types": ["tests_pass"], "lang": "uk"}
+{"text": "Готово.", "types": ["done"], "lang": "uk"}
+{"text": "Готово — ендпоінт повертає 404 для невідомих id.", "types": ["done"], "lang": "uk"}
+{"text": "Я реалізував повторні спроби з експоненційною затримкою.", "types": ["done"], "lang": "uk"}
+{"text": "Завдання виконано.", "types": ["done"], "lang": "uk"}
+{"text": "Виправив гонку в кеші.", "types": ["fixed"], "lang": "uk"}
+{"text": "Баг виправлено, парсер тепер обробляє часові зони.", "types": ["fixed"], "lang": "uk"}
+{"text": "Перевірив, що редірект працює для неавторизованих користувачів.", "types": ["verified"], "lang": "uk"}
+{"text": "Все працює коректно.", "types": ["verified"], "lang": "uk"}
+{"text": "Задеплоїв на staging.", "types": ["deployed"], "lang": "uk"}
+{"text": "Розгорнуто в прод.", "types": ["deployed"], "lang": "uk"}
+{"text": "Всі 57 тестів пройшли.", "types": ["tests_pass"], "lang": "uk"}
+{"text": "Зроблено: додав пагінацію в API.", "types": ["done"], "lang": "uk"}
+{"text": "Тести зелені.", "types": ["tests_pass"], "lang": "uk"}
+{"text": "Пофіксив падіння при порожньому списку.", "types": ["fixed"], "lang": "uk"}

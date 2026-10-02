@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "/dev/null/never-read.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}

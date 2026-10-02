@@ -1,0 +1,13 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "/dev/null/never-read.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "acceptEdits",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "python3 -m unittest",
+    "description": "Run tests"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_output": "Exit code 1\nF...\n======\nFAIL: test_add (tests.test_calc.CalcTest)\n------\nRan 4 tests in 0.002s\n\nFAILED (failures=1)\n"
+}

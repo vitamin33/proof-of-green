@@ -1,0 +1,19 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "/dev/null/never-read.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "acceptEdits",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/repo/calc.py",
+    "old_string": "a - b",
+    "new_string": "a + b"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_response": {
+    "filePath": "/repo/calc.py",
+    "oldString": "a - b",
+    "newString": "a + b",
+    "userModified": false
+  }
+}

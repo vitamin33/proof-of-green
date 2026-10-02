@@ -57,9 +57,9 @@ PATTERNS = [
     # --- verified -----------------------------------------------------------
     P("verified", r"\bi(?:'ve|\s+have)?\s+(?:verified|confirmed|double-checked|tested)\b", "I verified the redirect."),
     P("verified", r"^verified\b", "Verified: the cache is invalidated."),
-    P("verified", r"\b(?:it|this|everything|the\s+\w+)\s+(?:now\s+)?works\s+(?:as\s+expected|correctly|now|fine|end[\s-]to[\s-]end)\b",
+    P("verified", r"\b(?:it|this|everything|the(?:\s+[\w-]+){1,3})\s+(?:now\s+)?works\s+(?:as\s+expected|correctly|now|fine|end[\s-]to[\s-]end)\b",
       "Everything works as expected."),
-    P("verified", r"\b(?:it|this|everything|the\s+\w+)\s+is\s+(?:now\s+)?working\s+(?:as\s+expected|correctly|now)\b",
+    P("verified", r"\b(?:it|this|everything|the(?:\s+[\w-]+){1,3})\s+is\s+(?:now\s+)?working\s+(?:as\s+expected|correctly|now)\b",
       "The login flow is working correctly."),
     P("verified", r"\b(?:я\s+)?(?:перевірив|перевірила|протестував|протестувала|підтвердив|підтвердила)\b", "Перевірив редірект."),
     P("verified", r"\b(?:все|усе|воно|це)\s+(?:тепер\s+)?працює(?:\s+(?:коректно|правильно|як\s+очікувалось))?\b",
@@ -69,7 +69,7 @@ PATTERNS = [
     # --- deployed -----------------------------------------------------------
     P("deployed", r"\bi(?:'ve|\s+have)?\s+(?:deployed|shipped|released|published)\b", "I deployed it to staging."),
     P("deployed", r"\b(?:has\s+been|was|is\s+now|successfully)\s+(?:deployed|released|shipped)\b", "The fix was deployed to production."),
-    P("deployed", r"^deployed\b", "Deployed to Vercel."),
+    P("deployed", r"^(?:deployed|shipped|released)\b(?!\s+(?:in|by|as)\b)", "Shipped to production."),
     P("deployed", r"\bis\s+(?:now\s+)?live\s+(?:on|at|in)\b", "It is now live at the staging URL."),
     P("deployed", r"\b(?:я\s+)?(?:задеплоїв|задеплоїла|розгорнув|розгорнула|викатив|викатила)\b", "Задеплоїв на staging."),
     P("deployed", r"\b(?:задеплоєно|розгорнуто|викачено)\b", "Розгорнуто в прод."),
@@ -78,12 +78,12 @@ COMPILED = [(p.type, re.compile(p.rx, I)) for p in PATTERNS]
 
 # A sentence that contains any of these is never a claim.
 NEGATION = re.compile(
-    r"\b(?:not|never|cannot|unable|nor|yet|neither|no\s+longer)\b|n't\b|n’t\b|"
+    r"\b(?:not|never|nothing|cannot|unable|nor|yet|neither|no\s+longer)\b|n't\b|n’t\b|"
     r"(?:^|\s)(?:не|ні|ще\s+не|жоден|жодн\w+|немає|нема)(?=\s|$|[,.!])", I)
 FUTURE = re.compile(
     r"\b(?:will|shall|would|could|might|may|gonna|going\s+to|about\s+to|plan\s+to|need\s+to|needs\s+to|"
-    r"want\s+to|try\s+to|let\s+me|let's|next,?\s+i|intend|expect(?:ed)?\s+to|hopefully|probably|likely|"
-    r"supposed\s+to)\b|'ll\b|’ll\b|"
+    r"want\s+to|try\s+to|let\s+me|let's|next,?\s+i|intend|hopefully|probably|likely|"
+    r"supposed\s+to|expect(?:ed|s)?\s+to)\b|\bexpected\s*:|'ll\b|’ll\b|"
     r"(?:^|\s)(?:запущу|перевірю|виправлю|зроблю|задеплою|допишу|буду|будуть|збираюся|планую|спробую|"
     r"потрібно|треба|має|мають|повинн\w+|мабуть|можливо|далі|потім|зараз\s+\w+у)(?=\s|$|[,.!])", I)
 CONDITIONAL = re.compile(
@@ -100,7 +100,7 @@ IMPERATIVE_START = re.compile(
 # Words right before a tests-pass match that turn it into a goal ("to make the tests pass").
 GOAL_BEFORE = re.compile(r"(?:\bto|\bmake|\bmakes|\bmaking|\bget|\bensure|\bensuring|\bso|\bthat|\buntil|щоб|аби)\s+"
                          r"(?:\w+\s+){0,3}$", I)
-FAILED_COUNT = re.compile(r"\b[1-9]\d*\s+(?:failed|failing|failures?|errors?)\b|\b(?:fail(?:s|ed|ing)?|впал\w*|падают\w*|падає)\b", I)
+FAILED_COUNT = re.compile(r"\b[1-9]\d*\s+(?:failed|failing|failures?|errors?)\b|(?<!\b0 )(?<!\bno )\b(?:fail(?:s|ed|ing|ures?)?|впал\w*|падає)\b", I)
 PLAN_HEADER = re.compile(
     r"^\s*(?:#+\s*)?(?:\*\*)?(?:plan|next\s+steps?|todo|to-?do|remaining|follow-?ups?|open\s+questions|"
     r"план|наступні\s+кроки|що\s+далі|залишилось|залишилося)(?:\*\*)?\s*:?\s*(?:\*\*)?\s*$", I)
