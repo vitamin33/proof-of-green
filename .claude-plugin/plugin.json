@@ -1,0 +1,25 @@
+{
+  "name": "falsegreen",
+  "version": "0.1.0",
+  "description": "Flags when Claude says tests pass, done or fixed but never ran the tests after its last edit. Local, no blocking.",
+  "author": {"name": "Vitalii Serbyn"},
+  "homepage": "https://github.com/OWNER/falsegreen",
+  "repository": "https://github.com/OWNER/falsegreen",
+  "license": "MIT",
+  "keywords": ["verify", "tests", "done", "proof", "hooks", "reliability"],
+  "userConfig": {
+    "mode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "warn: one-line notice when a claim has no evidence after the last edit. observe: record only, never speak.",
+      "options": ["observe", "warn"],
+      "default": "warn"
+    },
+    "test_command": {
+      "type": "string",
+      "title": "Test command",
+      "description": "Optional. Your project's full test command (e.g. 'make ci'). Runs containing it count as full-suite runs.",
+      "default": ""
+    }
+  }
+}

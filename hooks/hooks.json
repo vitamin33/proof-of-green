@@ -1,0 +1,24 @@
+{
+  "description": "falsegreen: records edits and test runs, then checks completion claims against them at Stop. Local only.",
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/session_start.py"], "timeout": 5}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/user_prompt.py"], "timeout": 5}]}
+    ],
+    "PostToolUse": [
+      {"matcher": "Edit|Write|MultiEdit",
+       "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/post_edit.py"], "timeout": 5}]},
+      {"matcher": "Bash",
+       "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/post_bash.py"], "timeout": 5}]}
+    ],
+    "PostToolUseFailure": [
+      {"matcher": "Bash",
+       "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/post_bash.py"], "timeout": 5}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop.py"], "timeout": 10}]}
+    ]
+  }
+}
