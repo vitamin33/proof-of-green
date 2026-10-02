@@ -76,9 +76,10 @@ evidence tiers             A 4  B 2  C 1  D 2
 warnings issued            2
 edit turns with no claim   33%
 suspicious test flags      1 (|| true ×1)
+unparsed test runs         2 (flutter test ×2)
 ```
 
-C and D are the claims worth a second look, see below. "Edit turns with no claim" is how often Claude changed code and said nothing about whether it works. The last lines list turn numbers, so you can scroll back and see what happened.
+C and D are the claims worth a second look, see below. "Unparsed test runs" are test commands whose output proof-of-green could not count. If one runner shows up there often, its runs end up as B at best, and that runner's output format is worth adding. "Edit turns with no claim" is how often Claude changed code and said nothing about whether it works. The last lines list turn numbers, so you can scroll back and see what happened.
 
 ## How tiers are computed
 
@@ -104,7 +105,9 @@ Everything is stored in the plugin's own data folder, one JSONL file per session
 ~/.claude/plugins/data/proof-of-green-<marketplace>/errors.log
 ```
 
-`/proof-of-green:report` prints the exact folder on its last line. To delete everything, delete that folder. Uninstalling the plugin also removes it.
+The files hold parsed facts only. The project is stored only as a short hash of its folder path. Edited files are stored relative to the project. A file outside it is stored as `(outside project)`. In recorded commands, paths inside the project become relative and any other path becomes `<path>`. `/proof-of-green:report --all` names projects by that hash.
+
+`/proof-of-green:report` prints the data folder on its last line. To delete everything, delete that folder. Uninstalling the plugin also removes it, unless you pass `--keep-data`.
 
 ## License
 

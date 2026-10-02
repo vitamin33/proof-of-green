@@ -88,7 +88,7 @@ In the same Claude session:
 /proof-of-green:report --all
 ```
 
-Pass: a plain block that starts with `proof-of-green report — session xxxxxxxx`, shows `warnings issued 1` or more and ends with `data: /Users/<you>/.claude/plugins/data/proof-of-green-inline`. (2026-10-02, headless: printed correctly. `${CLAUDE_PLUGIN_ROOT}` and `$ARGUMENTS` are substituted in the command body, and the script found the data folder through its fallback.)
+Pass: a plain block that starts with `proof-of-green report — session xxxxxxxx, project yyyyyy` (`--all`: `N sessions in M projects`), shows `warnings issued 1` or more and an `unparsed test runs` line, and ends with `data: ~/.claude/plugins/data/proof-of-green-inline`. No project path appears anywhere. (2026-10-02, headless: printed correctly. `${CLAUDE_PLUGIN_ROOT}` and `$ARGUMENTS` are substituted in the command body, and the script found the data folder through its fallback.)
 
 ## 8. Errors
 

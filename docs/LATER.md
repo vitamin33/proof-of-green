@@ -14,6 +14,9 @@ From the v0 brief:
 
 Found while building v0:
 
+- Known blind spot: edits made through Bash (`sed -i`, `cat > file <<EOF`, `python - <<EOF` that writes files, `patch`) never count as code edits, so a session where the agent edits only that way never warns. Kept for v0 (DECISIONS.md D6).
+- Warn condition "a code edit in this turn" misses work by background subagents, whose result starts a new turn. Agreed fix after the observe week: "a code edit since the previous Stop" (DECISIONS.md D1).
+
 - Background test runs. `run_in_background` is flagged as suspicious because the result arrives later through another tool. Reading that tool's result would turn many D tiers into A.
 - Model per session. The SessionStart payload in Claude Code 2.1.287 has no `model` field, so the ledger stores `null`.
 - Matching claim scope to run scope. "test_login passes" is graded against any run, not a run that includes test_login.
