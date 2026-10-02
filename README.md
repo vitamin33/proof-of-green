@@ -52,7 +52,7 @@ And it misses some false claims on purpose. Claim detection is tuned so a wrong 
 - `mode`: `observe` (default in this release) or `warn`. Observe only records and never shows anything. Warn shows the one-line notice.
 - `test_command`: your project's full test command, for example `make ci`. A run that contains it counts as a full run.
 
-To switch to warn, type `/plugin configure proof-of-green@proof-of-green` in Claude Code and pick `warn`. The same screen opens from `/plugin`, then the plugin, then "Configure options". These options are not in `/config`. From a terminal, without opening any file:
+To switch to warn, type `/plugin configure proof-of-green@proof-of-green` in Claude Code and pick `warn`. The same screen opens from `/plugin`, then the plugin, then "Configure options". From a terminal, without opening any file:
 
 ```
 echo '{"mode": "warn"}' | claude plugin configure proof-of-green@proof-of-green --values-stdin
