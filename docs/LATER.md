@@ -10,7 +10,7 @@ From the v0 brief:
 - Skills, subagents, MCP server.
 - Telemetry of any kind. The scoreboard uses directory, GitHub and landing numbers only.
 - Landing page, and a "machine" for many plugins.
-- `/falsegreen:report --purge`. v0 documents the folder to delete instead.
+- `/proof-of-green:report --purge`. v0 documents the folder to delete instead.
 
 Found while building v0:
 

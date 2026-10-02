@@ -48,12 +48,12 @@ Type:
 4a. Pass: in the ledger, the failing run is recorded with `"event":"PostToolUseFailure"` and `"exit_code":1`, the edit with `"code":true`, and a `verdict` with `"acted":true` and tier `C`.
 
 ```bash
-tail -n 8 ~/.claude/plugins/data/falsegreen-inline/sessions/*.jsonl
+tail -n 8 ~/.claude/plugins/data/proof-of-green-inline/sessions/*.jsonl
 ```
 
 (2026-10-02, headless: a non-zero exit fires **PostToolUseFailure** with the output in `error`, starting `Exit code 1`. A zero exit fires PostToolUse with `tool_response = {stdout, stderr, interrupted, isImage, noOutputExpected}` and no exit-code field. The Stop payload has `last_assistant_message` and `stop_hook_active`. Verdict was C, acted. Claude then ran the tests again on its own, and the second Stop came with `stop_hook_active: true`, which was recorded and stayed silent.)
 
-4b. Pass: under Claude's reply you see one line starting with `falsegreen: claim 'tests pass' — no test run after your last edit`, and Claude runs the tests once more. **Not yet seen in the interactive UI.** If the line does not show but 4a passes, `systemMessage` from Stop hooks is not shown in this version; note it and check `claude --debug` output for the hook result.
+4b. Pass: under Claude's reply you see one line starting with `proof-of-green: claim 'tests pass' — no test run after your last edit`, and Claude runs the tests once more. **Not yet seen in the interactive UI.** If the line does not show but 4a passes, `systemMessage` from Stop hooks is not shown in this version; note it and check `claude --debug` output for the hook result.
 
 ## 5. Hook latency
 
@@ -71,7 +71,7 @@ Pass: every `real` under 0.10. (2026-10-02: median 44 to 53 ms per hook, Python 
 ```bash
 find /tmp/fg-fixture -newer /tmp/fg-start -type f -not -path '*/.git/*'
 find "$FG" -newer /tmp/fg-start -type f -not -path '*/.git/*' -not -path '*/.venv/*'
-ls -R ~/.claude/plugins/data/falsegreen-inline/
+ls -R ~/.claude/plugins/data/proof-of-green-inline/
 ```
 
 Pass: the first command lists only files Claude edited (`calc.py`, maybe `tests/.warm` from the flaky test). The second lists nothing. The data folder holds only `sessions/<id>.jsonl` and, if something broke, `errors.log`. (2026-10-02: confirmed by test `test_writes_stay_inside_plugin_data` and by the headless run.)
@@ -81,16 +81,16 @@ Pass: the first command lists only files Claude edited (`calc.py`, maybe `tests/
 In the same Claude session:
 
 ```
-/falsegreen:report
-/falsegreen:report --all
+/proof-of-green:report
+/proof-of-green:report --all
 ```
 
-Pass: a plain block that starts with `falsegreen report — session xxxxxxxx`, shows `warnings issued 1` or more and ends with `data: /Users/<you>/.claude/plugins/data/falsegreen-inline`. (2026-10-02, headless: printed correctly. `${CLAUDE_PLUGIN_ROOT}` and `$ARGUMENTS` are substituted in the command body, and the script found the data folder through its fallback.)
+Pass: a plain block that starts with `proof-of-green report — session xxxxxxxx`, shows `warnings issued 1` or more and ends with `data: /Users/<you>/.claude/plugins/data/proof-of-green-inline`. (2026-10-02, headless: printed correctly. `${CLAUDE_PLUGIN_ROOT}` and `$ARGUMENTS` are substituted in the command body, and the script found the data folder through its fallback.)
 
 ## 8. Errors
 
 ```bash
-cat ~/.claude/plugins/data/falsegreen-inline/errors.log 2>/dev/null || echo "no errors"
+cat ~/.claude/plugins/data/proof-of-green-inline/errors.log 2>/dev/null || echo "no errors"
 ```
 
 Pass: `no errors`, or only lines you caused on purpose.
@@ -98,5 +98,5 @@ Pass: `no errors`, or only lines you caused on purpose.
 ## Clean up
 
 ```bash
-rm -rf /tmp/fg-fixture /tmp/fg-start ~/.claude/plugins/data/falsegreen-inline
+rm -rf /tmp/fg-fixture /tmp/fg-start ~/.claude/plugins/data/proof-of-green-inline
 ```

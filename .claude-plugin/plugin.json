@@ -1,10 +1,10 @@
 {
-  "name": "falsegreen",
+  "name": "proof-of-green",
   "version": "0.1.0",
   "description": "Flags when Claude says tests pass, done or fixed but never ran the tests after its last edit. Local, no blocking.",
   "author": {"name": "Vitalii Serbyn"},
-  "homepage": "https://github.com/OWNER/falsegreen",
-  "repository": "https://github.com/OWNER/falsegreen",
+  "homepage": "https://github.com/OWNER/proof-of-green",
+  "repository": "https://github.com/OWNER/proof-of-green",
   "license": "MIT",
   "keywords": ["verify", "tests", "done", "proof", "hooks", "reliability"],
   "userConfig": {

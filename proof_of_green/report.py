@@ -1,4 +1,4 @@
-"""Plain-text summary of the ledger for /falsegreen:report."""
+"""Plain-text summary of the ledger for /proof-of-green:report."""
 import glob
 import os
 from collections import Counter
@@ -12,7 +12,7 @@ def find_data_dir(explicit=None):
     if ledger.data_dir():
         return ledger.data_dir()
     # The command's Bash call may not inherit CLAUDE_PLUGIN_DATA; look where Claude Code keeps it.
-    candidates = glob.glob(os.path.expanduser("~/.claude/plugins/data/falsegreen*"))
+    candidates = glob.glob(os.path.expanduser("~/.claude/plugins/data/proof-of-green*"))
     return max(candidates, key=_newest, default=None)
 
 
@@ -54,7 +54,7 @@ def render(s, label):
     tier_line = "  ".join("%s %d" % (t, s["tiers"].get(t, 0)) for t in "ABCD")
     flags = ", ".join("%s ×%d" % kv for kv in s["flags"].most_common()) or "none"
     lines = [
-        "falsegreen report — %s" % label,
+        "proof-of-green report — %s" % label,
         "",
         "turns with code edits      %d of %d" % (s["edit_turns"], s["turns"]),
         "claims by type             %s" % claims,
@@ -82,7 +82,7 @@ def main(argv):
     base = find_data_dir(data)
     files = sorted(glob.glob(os.path.join(base, "sessions", "*.jsonl")), key=os.path.getmtime) if base else []
     if not files:
-        print("falsegreen: no sessions recorded yet. Data folder: %s" % (base or "~/.claude/plugins/data/falsegreen-*"))
+        print("proof-of-green: no sessions recorded yet. Data folder: %s" % (base or "~/.claude/plugins/data/proof-of-green-*"))
         return 0
     if "--all" not in argv:
         files = files[-1:]

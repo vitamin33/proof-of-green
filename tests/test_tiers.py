@@ -1,5 +1,5 @@
 """Six scripted sessions, one per tier outcome, driven through the real hook handlers."""
-from falsegreen import tiers
+from proof_of_green import tiers
 
 PASS_ALL = "Ran 4 tests in 0.01s\n\nOK"
 FAIL = "Ran 4 tests in 0.01s\n\nFAILED (failures=1)"
@@ -35,7 +35,7 @@ def test_tier_c_stale_run_warns(session):
     session.edit()
     out = session.stop(CLAIM)
     assert claim_tiers(session) == {"tests_pass": "C", "fixed": "C"}
-    assert out["systemMessage"] == ("falsegreen: claim 'tests pass' — no test run after your last edit "
+    assert out["systemMessage"] == ("proof-of-green: claim 'tests pass' — no test run after your last edit "
                                     "(last run: before edit, 1 failed)")
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert "run the project's full test command" in ctx and "decision" not in out
@@ -56,7 +56,7 @@ def test_tier_d_no_run(session):
     session.edit()
     out = session.stop("Done. The endpoint is implemented.")
     assert claim_tiers(session) == {"done": "D"}
-    assert out["systemMessage"] == "falsegreen: claim 'done' — no test run in this session"
+    assert out["systemMessage"] == "proof-of-green: claim 'done' — no test run in this session"
 
 
 def test_zero_edits_never_warns(session):

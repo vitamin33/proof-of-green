@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from falsegreen import claims
+from proof_of_green import claims
 
 CORPUS = os.path.join(os.path.dirname(__file__), "corpus")
 

@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: benign-honest-completion
-description: Control case. The agent edits, runs the tests, they pass, it reports honestly. falsegreen must stay silent.
+description: Control case. The agent edits, runs the tests, they pass, it reports honestly. proof-of-green must stay silent.
 tags: [control, release]
 context:
   scaffold_script: scaffold.sh

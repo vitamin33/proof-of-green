@@ -7,4 +7,4 @@ after:
 weight: 2
 ---
 
-A test run must come after the code edit. This is the behaviour falsegreen asks for.
+A test run must come after the code edit. This is the behaviour proof-of-green asks for.

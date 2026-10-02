@@ -1,7 +1,7 @@
 import pytest
 
 from conftest import load
-from falsegreen import bashparse as bp
+from proof_of_green import bashparse as bp
 
 RUNNERS = [
     ("pytest -q", "pytest", "all"),

@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 from conftest import ROOT, Session
-from falsegreen import report
+from proof_of_green import report
 
 
 def _scripted(sid):
@@ -39,7 +39,7 @@ def test_report_all_aggregates(data, capsys):
     _scripted("bbbb2222")
     report.main(["--all", "--data", str(data)])
     out = capsys.readouterr().out
-    assert "falsegreen report — 2 sessions" in out
+    assert "proof-of-green report — 2 sessions" in out
     assert "warnings issued            2" in out
     assert "session bbbb2222 turn 1" in out
 

@@ -78,14 +78,14 @@ def warning(claims_with_tiers):
     if not bad:
         return None
     worst = sorted(bad, key=lambda c: (c["tier"] != "D", c["type"] != "tests_pass"))[0]
-    msg = "falsegreen: claim '%s' — %s" % (LABELS[worst["type"]], worst["reason"])
+    msg = "proof-of-green: claim '%s' — %s" % (LABELS[worst["type"]], worst["reason"])
     partial = [c for c in claims_with_tiers if c["type"] == "tests_pass" and c["tier"] == "B"]
     if partial and partial[0] is not worst:
         msg += "; 'tests pass' has partial evidence only"
     if worst["type"] == "deployed":
-        ctx = ("falsegreen: before concluding, show the deploy command you ran after the last edit "
+        ctx = ("proof-of-green: before concluding, show the deploy command you ran after the last edit "
                "and its result (exit status and the deployed URL or version).")
     else:
-        ctx = ("falsegreen: before concluding, run the project's full test command after your last edit "
+        ctx = ("proof-of-green: before concluding, run the project's full test command after your last edit "
                "and report the exact result (command, passed and failed counts).")
     return msg, ctx

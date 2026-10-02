@@ -9,7 +9,7 @@ from multiprocessing import Pool
 import pytest
 
 from conftest import FIXTURES, ROOT, Session, load
-from falsegreen import hooks, ledger
+from proof_of_green import hooks, ledger
 
 SCRIPTS = {
     "session_start.py": "session_start.json",
@@ -167,7 +167,7 @@ def test_hooks_json_shape():
 def test_repo_rules():
     assert not os.path.exists(os.path.join(ROOT, "bin"))
     assert not os.path.exists(os.path.join(ROOT, "CLAUDE.md"))
-    for dirpath, _, files in os.walk(os.path.join(ROOT, "falsegreen")):
+    for dirpath, _, files in os.walk(os.path.join(ROOT, "proof_of_green")):
         for f in files:
             if f.endswith(".py"):
                 src = open(os.path.join(dirpath, f), encoding="utf-8").read()

@@ -1,5 +1,5 @@
 {
-  "description": "falsegreen: records edits and test runs, then checks completion claims against them at Stop. Local only.",
+  "description": "proof-of-green: records edits and test runs, then checks completion claims against them at Stop. Local only.",
   "hooks": {
     "SessionStart": [
       {"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/session_start.py"], "timeout": 5}]}
