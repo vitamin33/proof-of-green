@@ -84,8 +84,24 @@ def redact(command, cwd=None, limit=240):
     for rx, repl in REDACTIONS:
         out = rx.sub(repl, out)
     out = PATH_OR_SECRET.sub(lambda m: m.group(0) if _is_path(m.group(2), cwd) else m.group(1) + "***", out)
+    out = relativize(out, cwd)  # before the length cut, so no path is stored half-replaced
     out = " ".join(out.split())
     return out if len(out) <= limit else out[:limit] + "…"
+
+
+OTHER_PATH = re.compile(r"(?<![\w.:/~<>*-])(?:~/|/)[^\s'\";|&)]*|(?<![\w.:/~-])~(?=[\s'\";|&)]|$)")
+
+
+def relativize(command, cwd):
+    """Store paths relative to the session folder: <cwd>/x -> x, <cwd> -> ., any other path -> <path>."""
+    roots = [(r, "") for r in {cwd.rstrip("/"), os.path.realpath(cwd).rstrip("/")} if r] if cwd else []
+    home = os.path.expanduser("~").rstrip("/")
+    for root, _ in sorted(roots, key=lambda x: len(x[0]), reverse=True):
+        command = re.sub(re.escape(root) + r"/", "", command)
+        command = re.sub(re.escape(root) + r"(?![\w.-])", ".", command)
+    if home:
+        command = re.sub(re.escape(home) + r"(?![\w.-])", "~", command)
+    return OTHER_PATH.sub("<path>", command)
 
 
 def segments(command):

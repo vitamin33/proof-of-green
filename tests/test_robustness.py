@@ -92,3 +92,23 @@ def test_edit_uses_first_session_cwd(data):
     s.cwd = "/repo/.claude/worktrees/wt"  # later payloads report another cwd
     s.edit("/repo/calc.py")
     assert s.records()[-1]["path"] == "calc.py" and s.records()[-1]["code"] is True
+
+
+def test_background_subagent_case_can_be_scored_under_both_rules(session):
+    """Event order from the 2026-10-02 probe (session a8a4577f): parent stops before the subagent edits,
+    the result arrives as a new prompt, then the parent claims. Current rule stays silent (D1)."""
+    session.prompt("Use a subagent to fix calc.py")
+    assert session.stop("I've launched a subagent to make the change.") is None   # Stop 1, no claim
+    session.fire("PostToolUse:edit", {"hook_event_name": "PostToolUse", "tool_name": "Edit",
+                                      "agent_id": "a30aca86184812420", "tool_input": {"file_path": "/repo/calc.py"}})
+    session.prompt("x" * 906)                                                       # subagent result
+    assert session.stop("Done. All tests pass.") is None                            # Stop 2
+    recs = session.records()
+    verdict = recs[-1]
+    assert verdict["kind"] == "verdict" and verdict["acted"] is False
+    assert {c["tier"] for c in verdict["claims"]} == {"D"}
+    # rule "code edit in this turn" (current): no edit in the verdict's turn
+    assert not any(r["kind"] == "edit" and r["turn"] == verdict["turn"] for r in recs)
+    # rule "code edit since the previous Stop" (D1 option 2): computable from the stop marker
+    prev_stop = max(r["seq"] for r in recs if r["kind"] in ("stop", "verdict") and r["seq"] < verdict["seq"])
+    assert any(r["kind"] == "edit" and r["code"] and prev_stop < r["seq"] < verdict["seq"] for r in recs)

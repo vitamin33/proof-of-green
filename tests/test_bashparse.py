@@ -182,7 +182,7 @@ def test_redaction_keeps_harmless_commands(tmp_path):
     cwd = str(tmp_path)
     assert bp.redact("pytest -q tests/", cwd) == "pytest -q tests/"
     assert bp.redact("mkdir -p build && make test", cwd) == "mkdir -p build && make test"
-    assert bp.redact("mkdir -p %s/build" % cwd, "/") == "mkdir -p %s/build" % cwd
+    assert bp.redact("mkdir -p %s/build" % cwd, "/") == "mkdir -p <path>"  # not ***; outside-project paths are masked
     assert bp.redact("cp -p a.txt build/", cwd) == "cp -p a.txt build/"
     assert bp.redact("tool --password build", cwd) == "tool --password build"
 

@@ -3,6 +3,7 @@
 Every record gets a monotonically increasing `seq` assigned under an exclusive
 file lock, so concurrent subagent hooks never interleave or reuse a number.
 """
+import hashlib
 import json
 import os
 import re
@@ -13,6 +14,17 @@ try:
     import fcntl
 except ImportError:  # Windows: append-only lines still work, seq may repeat
     fcntl = None
+
+
+def project_hash(path):
+    """Short stable id for a project folder. The ledger stores this, never the path."""
+    real = os.path.realpath(os.path.expanduser(path))
+    return hashlib.sha256(real.encode("utf-8", "surrogateescape")).hexdigest()[:12]
+
+
+def home_to_tilde(text):
+    home = os.path.expanduser("~")
+    return text.replace(home, "~") if home and home != "/" else text
 
 
 def data_dir():
@@ -130,7 +142,7 @@ def first_session(path):
         for line in fh:
             if '"kind":"session"' in line:
                 recs = _parse([line])
-                if recs and recs[0].get("cwd"):
+                if recs and (recs[0].get("project") or recs[0].get("cwd")):
                     return recs[0]
     return None
 
@@ -144,7 +156,7 @@ def log_error(where, exc):
         os.makedirs(base, exist_ok=True)
         tb = traceback.extract_tb(exc.__traceback__)
         loc = "%s:%s" % (os.path.basename(tb[-1].filename), tb[-1].lineno) if tb else "?"
-        msg = str(exc).replace("\n", " ")[:160]
+        msg = home_to_tilde(str(exc).replace("\n", " "))[:160]
         line = "%s %s %s %s: %s\n" % (
             time.strftime("%Y-%m-%dT%H:%M:%S"), where, loc, type(exc).__name__, msg)
         with open(os.path.join(base, "errors.log"), "a", encoding="utf-8") as fh:

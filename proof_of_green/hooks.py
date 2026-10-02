@@ -30,18 +30,31 @@ def is_test_path(path):
     return bool(TEST_PATH.search((path or "").replace("\\", "/")))
 
 
-def classify(path, cwd):
-    """Return (path relative to the project when inside it, is_test, is_code).
+OUTSIDE = "(outside project)"
 
-    Edits outside the session's cwd (scratch files, memory, plans) and docs are not code edits.
+
+def classify(path, project):
+    """Return (path relative to the project, is_test, is_code); OUTSIDE for files elsewhere.
+
+    `project` is the hash of the folder the session started in. A file is inside when one of
+    its parent folders hashes to it, so no absolute path is ever stored. Edits outside that
+    folder (scratch files, memory, plans) and docs are not code edits.
     """
     inside = True
-    if cwd and os.path.isabs(path):
-        root = os.path.realpath(cwd)
+    if project and os.path.isabs(path):
         real = os.path.realpath(path)
-        inside = real.startswith(root.rstrip(os.sep) + os.sep)
-        if inside:
-            path = os.path.relpath(real, root)
+        inside = False
+        parent = os.path.dirname(real)
+        while True:
+            if ledger.project_hash(parent) == project:
+                path, inside = os.path.relpath(real, parent), True
+                break
+            up = os.path.dirname(parent)
+            if up == parent:
+                break
+            parent = up
+        if not inside:
+            return OUTSIDE, False, False
     return path, is_test_path(path), inside and not DOC_PATH.search(path)
 
 
@@ -54,9 +67,17 @@ def _git_head(cwd):
         return None
 
 
-def _session_cwd(sid, payload):
+def _session_project(sid, payload):
     rec = ledger.first_session(ledger.session_path(sid))
-    return rec["cwd"] if rec else payload.get("cwd")
+    if rec:
+        return rec.get("project") or ledger.project_hash(rec["cwd"])  # "cwd": ledgers before 0.1.0
+    return ledger.project_hash(payload.get("cwd")) if payload.get("cwd") else None
+
+
+def _agent(p, rec):
+    if isinstance(p.get("agent_id"), str) and p["agent_id"]:
+        rec["agent_id"] = p["agent_id"]
+    return rec
 
 
 def on_session_start(p):
@@ -64,7 +85,8 @@ def on_session_start(p):
     if isinstance(model, dict):
         model = model.get("id") or model.get("display_name")
     ledger.append(p.get("session_id"), {
-        "kind": "session", "session_id": p.get("session_id"), "cwd": p.get("cwd"),
+        "kind": "session", "session_id": p.get("session_id"),
+        "project": ledger.project_hash(p.get("cwd")) if p.get("cwd") else None,
         "git_head": _git_head(p.get("cwd")), "model": model, "source": p.get("source")})
 
 
@@ -80,25 +102,25 @@ def on_edit(p):
     if not isinstance(path, str) or not path:
         return
     sid = p.get("session_id")
-    path, is_test, code = classify(path, _session_cwd(sid, p))
-    ledger.append(sid, {"kind": "edit", "path": path, "is_test": is_test, "code": code})
+    path, is_test, code = classify(path, _session_project(sid, p))
+    ledger.append(sid, _agent(p, {"kind": "edit", "path": path, "is_test": is_test, "code": code}))
 
 
 def on_bash(p):
     rec = bashparse.parse_bash(p, os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND"))
     rec["event"] = p.get("hook_event_name") or "PostToolUse"
-    ledger.append(p.get("session_id"), rec)
+    ledger.append(p.get("session_id"), _agent(p, rec))
 
 
 def on_stop(p):
-    message = p.get("last_assistant_message")
-    if not isinstance(message, str) or not message.strip():
-        return None
     sid = p.get("session_id")
-    records = ledger.read(ledger.session_path(sid))
-    found = claims.extract(message)
+    message = p.get("last_assistant_message")
+    found = claims.extract(message) if isinstance(message, str) else []
     if not found:
+        # Data only: marks where each Stop fell, so DECISIONS.md D1 can be scored after the observe week.
+        ledger.append(sid, {"kind": "stop", "has_message": isinstance(message, str) and bool(message.strip())})
         return None
+    records = ledger.read(ledger.session_path(sid))
     turn = ledger.current_turn(records)
     graded = []
     for c in found:

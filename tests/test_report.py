@@ -55,3 +55,24 @@ def test_report_script_uses_env(data):
     proc = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "report.py")],
                           capture_output=True, text=True, env=env, timeout=10)
     assert proc.returncode == 0 and "session cccc3333" in proc.stdout
+
+
+def test_unparsed_test_runs_line(data, capsys):
+    s = Session(sid="unparsed1")
+    s.start()
+    s.prompt()
+    s.bash("flutter test --coverage", "some output the parser does not know")
+    s.bash("flutter test test/a_test.dart", "still unknown")
+    s.bash("cd app && make check", "make: nothing to report")
+    s.bash("fastlane ios test", "")
+    s.bash("pytest -q", "==== 3 passed in 0.1s ====")          # parsed, not counted
+    s.bash("ls -la", "total 0")                                # not a test run
+    report.main(["--data", str(data)])
+    out = capsys.readouterr().out
+    assert "unparsed test runs         4 (flutter test ×2, make check ×1, fastlane ios ×1)" in out
+
+
+def test_unparsed_none(data, capsys):
+    _scripted("dddd4444")
+    report.main(["--data", str(data)])
+    assert "unparsed test runs         0 (none)" in capsys.readouterr().out
