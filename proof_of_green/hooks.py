@@ -22,7 +22,8 @@ CODEISH = re.compile(
 
 
 def mode():
-    return "observe" if os.environ.get("CLAUDE_PLUGIN_OPTION_MODE", "warn").strip().lower() == "observe" else "warn"
+    """observe unless the user picked warn; an unset or unknown value never speaks."""
+    return "warn" if os.environ.get("CLAUDE_PLUGIN_OPTION_MODE", "").strip().lower() == "warn" else "observe"
 
 
 def is_test_path(path):

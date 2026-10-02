@@ -145,3 +145,23 @@ def test_custom_test_command_counts_as_full(session, monkeypatch):
     session.bash("make ci", "Ran 4 tests in 0.01s\n\nOK")
     session.stop("All tests pass.")
     assert claim_tiers(session)["tests_pass"] == "A"
+
+
+def test_default_mode_is_observe(session, monkeypatch):
+    for value in (None, "", "bogus"):
+        if value is None:
+            monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MODE", raising=False)
+        else:
+            monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MODE", value)
+        session.prompt()
+        session.edit()
+        assert session.stop(CLAIM) is None
+        assert session.verdicts()[-1]["mode"] == "observe"
+
+
+def test_manifest_default_is_observe():
+    import json
+    import os
+    from conftest import ROOT
+    with open(os.path.join(ROOT, ".claude-plugin", "plugin.json")) as fh:
+        assert json.load(fh)["userConfig"]["mode"]["default"] == "observe"

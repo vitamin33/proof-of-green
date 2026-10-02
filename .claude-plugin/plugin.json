@@ -11,9 +11,9 @@
     "mode": {
       "type": "string",
       "title": "Mode",
-      "description": "warn: one-line notice when a claim has no evidence after the last edit. observe: record only, never speak.",
+      "description": "observe (default): record only, never speak. warn: one-line notice when a claim has no evidence after the last edit.",
       "options": ["observe", "warn"],
-      "default": "warn"
+      "default": "observe"
     },
     "test_command": {
       "type": "string",

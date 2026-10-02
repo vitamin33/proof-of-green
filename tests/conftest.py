@@ -22,7 +22,7 @@ def load(name):
 @pytest.fixture
 def data(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path / "data"))
-    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MODE", raising=False)
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MODE", "warn")  # most tests check warn behaviour; default is observe
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_TEST_COMMAND", raising=False)
     return tmp_path / "data"
 
