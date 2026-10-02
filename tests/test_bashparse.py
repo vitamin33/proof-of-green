@@ -134,6 +134,7 @@ def test_other_command_keeps_no_output():
 
 def test_deploy_command_is_marked():
     assert bp.parse_bash({"tool_input": {"command": "vercel deploy --prod"}}).get("deploy") is True
+    assert bp.parse_bash({"tool_input": {"command": "npm i -g vercel"}}).get("deploy") is None
 
 
 @pytest.mark.parametrize("raw,secret", [

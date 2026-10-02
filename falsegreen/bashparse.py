@@ -32,7 +32,7 @@ PREFIX = re.compile(
     r"npx\s+(?:-y\s+)?|bunx\s+|pnpm\s+(?:exec|dlx)\s+|yarn\s+(?:exec\s+)?(?=jest|vitest))")
 
 DEPLOY = re.compile(
-    r"\b(?:vercel(?:\s+deploy)?(?:\s+--prod)?$|vercel\s+deploy|netlify\s+deploy|fly(?:ctl)?\s+deploy|"
+    r"\b(?:vercel\s+(?:deploy|--prod)|netlify\s+deploy|fly(?:ctl)?\s+deploy|"
     r"firebase\s+deploy|gcloud\s+.*\bdeploy\b|kubectl\s+(?:apply|rollout)|helm\s+(?:upgrade|install)|"
     r"railway\s+up|render\s+deploy|wrangler\s+(?:deploy|publish)|serverless\s+deploy|sls\s+deploy|"
     r"cdk\s+deploy|terraform\s+apply|heroku\s+.*deploy|eas\s+(?:submit|update)|fastlane\s+\w+|"
