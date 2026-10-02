@@ -12,7 +12,8 @@ RUNNERS = [
     ("unittest", r"\bpython[\d.]*\s+-m\s+unittest\b"),
     ("vitest", r"(?:^|/)vitest\b"),
     ("jest", r"(?:^|/)jest\b"),
-    ("npm test", r"^(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|t)\b(?!:)"),
+    ("npm test", r"^(?:npm|pnpm|yarn|bun)\s+(?:-{1,2}[\w-]+(?:[= ](?!(?:run|test|t)\b)[^\s-]\S*)?\s+)*"
+                 r"(?:run\s+)?(?:test|t)(?::[\w:-]+)?(?=\s|$)"),
     ("go test", r"^go\s+test\b"),
     ("cargo test", r"^cargo\s+(?:test|nextest\s+run)\b"),
     ("flutter test", r"^flutter\s+test\b"),
@@ -23,6 +24,7 @@ RUNNERS = [
     ("make test", r"^make\b.*\s(?:test|check)\b"),
     ("xcodebuild test", r"^xcodebuild\b.*\btest\b"),
     ("swift test", r"^swift\s+test\b"),
+    ("fastlane", r"^fastlane\s+(?:(?:ios|android|mac)\s+)?(?:test|tests|scan|run_tests|unit_tests?)\b"),
     ("rspec", r"(?:^|/)rspec\b"),
     ("phpunit", r"(?:^|/)phpunit\b"),
 ]
@@ -139,6 +141,10 @@ def detect_scope(runner, seg):
               "verify", "vitest", "jest", "go"}
     rest = [w for w in words if w not in ignore and not re.match(r"^:?[\w:-]*[tT]est\w*$", w)
             and not re.match(r"^python[\d.]*$", w)]
+    if runner.split()[0] in ("npm", "pnpm", "yarn", "bun") and re.search(r"\btest:[\w:-]+", seg):
+        return "unknown"  # a named sub-suite such as test:unit
+    if runner == "fastlane":
+        return "partial" if re.search(r"only_testing|testplan", seg) else "unknown"
     if runner == "npm test" and " -- " not in " %s " % seg:
         return "all"
     if not rest:
@@ -225,6 +231,10 @@ def parse_counts(text):
     m = re.findall(r"Executed (\d+) tests?, with (\d+) failures?", t)
     if m:  # xctest / swift test
         n, f = int(m[-1][0]), int(m[-1][1])
+        return n - f, f, n
+    m = re.search(r"\|\s*Number of tests\s*\|\s*(\d+)\s*\|[\s\S]*?\|\s*Number of failures\s*\|\s*(\d+)\s*\|", t)
+    if m:  # fastlane scan summary table
+        n, f = int(m.group(1)), int(m.group(2))
         return n - f, f, n
     m = re.search(r"Test run with (\d+) tests? (?:in \d+ suites? )?(passed|failed)", t)
     if m:  # swift-testing

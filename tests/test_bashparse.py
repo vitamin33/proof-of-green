@@ -44,6 +44,21 @@ RUNNERS = [
     ("bundle exec rspec spec/models/user_spec.rb", "rspec", "partial"),
     ("vendor/bin/phpunit", "phpunit", "all"),
     ("vendor/bin/phpunit --filter testLogin", "phpunit", "partial"),
+    # runners used on the observe-run projects
+    ("flutter test --coverage", "flutter test", "all"),
+    ("flutter test test/foo_test.dart", "flutter test", "partial"),
+    ("dart test test/a_test.dart", "dart test", "partial"),
+    ("xcodebuild -scheme App -destination 'platform=iOS Simulator,name=iPhone 16' test", "xcodebuild test", "all"),
+    ("fastlane test", "fastlane", "unknown"),
+    ("fastlane ios test", "fastlane", "unknown"),
+    ("bundle exec fastlane scan", "fastlane", "unknown"),
+    ("fastlane ios test only_testing:AppTests/LoginTests", "fastlane", "partial"),
+    ("npm run test:unit", "npm test", "unknown"),
+    ("pnpm run test:e2e", "pnpm test", "unknown"),
+    ("yarn test:ci", "yarn test", "unknown"),
+    ("pnpm -r test", "pnpm test", "all"),
+    ("pnpm --filter web test", "pnpm test", "partial"),
+    ("make check", "make test", "all"),
 ]
 
 
@@ -55,7 +70,9 @@ def test_runner_and_scope(command, runner, scope):
 
 
 @pytest.mark.parametrize("command", ["ls -la", "git status", "npm install", "pip install pytest",
-                                     "cat tests/test_a.py", "npm run test:e2e:setup", "echo test"])
+                                     "cat tests/test_a.py", "echo test", "npm run build", "pnpm -r build",
+                                     "fastlane beta", "git stash", "git checkout main -- calc.py",
+                                     "git worktree add ../wt feature"])
 def test_non_test_commands(command):
     assert bp.detect_runner(command) == (None, None)
 
@@ -103,6 +120,11 @@ COUNTS = [
     ("Tests: 8, Assertions: 20, Failures: 2.", (6, 2, 8)),
     ("Executed 15 tests, with 1 failure (0 unexpected) in 0.2 seconds", (14, 1, 15)),
     ("ok  \tgithub.com/acme/api/pkg/a\t0.012s\nFAIL\tgithub.com/acme/api/pkg/b\t0.020s", (1, 1, 2)),
+    ("00:05 +10 ~1: All tests passed!", (10, 0, 10)),
+    ("00:07 +10 ~1 -2: Some tests failed.", (10, 2, 12)),
+    ("+-----------------------+----+\n| Number of tests       | 42 |\n| Number of failures    | 1  |\n+---", (41, 1, 42)),
+    ("Test Suite 'All tests' failed\n\t Executed 30 tests, with 2 failures (0 unexpected) in 1.1 (1.2) seconds\n** TEST FAILED **",
+     (28, 2, 30)),
     ("random text", (None, None, None)),
 ]
 
@@ -180,3 +202,9 @@ def test_parse_bash_uses_payload_cwd(tmp_path):
     (tmp_path / "out").mkdir()
     rec = bp.parse_bash({"cwd": str(tmp_path), "tool_input": {"command": "mkdir -p out"}})
     assert rec["command"] == "mkdir -p out"
+
+
+def test_fastlane_release_lane_is_deploy_not_test():
+    rec = bp.parse_bash({"tool_input": {"command": "bundle exec fastlane ios beta"}})
+    assert rec["kind"] == "other" and rec.get("deploy") is True
+    assert bp.parse_bash({"tool_input": {"command": "fastlane test"}})["kind"] == "test_run"
