@@ -2,6 +2,8 @@
 
 The plugin is the top of a funnel. This page decides whether v0.1 gets built. Edit the numbers in the tables; the decision rule reads from them.
 
+Observe week (local install, before any listing): started 2026-10-04.
+
 Start date: [DATE OF DIRECTORY LISTING]. Week 2 check: [DATE+14]. Week 4 decision: [DATE+28].
 
 | metric | source | 2-week target | 4-week decision threshold |
