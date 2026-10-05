@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 (2026-10-05, mid-observe-week parser fix)
+
+- Parse node:test results: the TAP summary (`# tests / # pass / # fail / # cancelled`) and the spec reporter (`ℹ tests …`). This also works when the output is piped through `grep` for those lines, as in the Vitelle sessions. Before this, such runs were stored with `collected = null` and could reach tier B at most.
+- Recognize `node --test` as a test runner (`--test-name-pattern` or file arguments make it partial).
+- Tiers, claim patterns and what counts as a code edit are unchanged.
+
 ## 0.1.0 (unreleased, observe-week build)
 
 First version. Runs in observe mode by default.

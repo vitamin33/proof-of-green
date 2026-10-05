@@ -1,6 +1,6 @@
 {
   "name": "proof-of-green",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Flags when Claude says tests pass, done or fixed but never ran the tests after its last edit. Local, no blocking.",
   "author": {"name": "Vitalii Serbyn"},
   "homepage": "https://github.com/vitamin33/proof-of-green",
