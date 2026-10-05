@@ -220,7 +220,15 @@ NODE_TEST = [  # real node v22.22.0 output, 2026-10-05; local paths replaced wit
     ("mixed_tap.txt", (3, 1, 5)),
     ("mixed_spec.txt", (3, 1, 5)),       # spec reporter: "ℹ tests 5", summary before failure details
     ("mixed_npm_grep.txt", (3, 1, 5)),   # npm test 2>&1 | grep -E "^# (tests|pass|fail)|^not ok"
+    ("npm_grep_passfail.txt", (3, 1, 4)),        # grep -E "^# (pass|fail)": no "# tests" line, skips not counted
+    ("npm_grep_passfail_notok.txt", (3, 1, 4)),  # grep -E "^# (pass|fail)|^not ok"
+    ("pass_grep_passfail.txt", (2, 0, 2)),
 ]
+
+
+@pytest.mark.parametrize("text", ["# pass 3\n", "# fail 0\n", "ok 1 - a\nnot ok 2 - b\n"])
+def test_node_test_partial_summaries_stay_unknown(text):
+    assert bp.parse_counts(text) == (None, None, None)
 
 
 @pytest.mark.parametrize("name,expected", NODE_TEST)

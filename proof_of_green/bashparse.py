@@ -204,10 +204,11 @@ def parse_counts(text):
         f = sum(_ints(r"(?:failures|errors)=(\d+)", fm.group(1))) if fm else 0
         return n - f, f, n
     tests = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) tests (\d+)\s*$", t)]
-    if tests:  # node:test summary, TAP (# tests) or spec (ℹ tests); one block per run, summed
-        p = sum(int(x) for x in re.findall(r"(?m)^(?:#|ℹ) pass (\d+)\s*$", t))
-        f = sum(int(x) for x in re.findall(r"(?m)^(?:#|ℹ) (?:fail|cancelled) (\d+)\s*$", t))
-        return p, f, sum(tests)
+    passes = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) pass (\d+)\s*$", t)]
+    fails = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) (?:fail|cancelled) (\d+)\s*$", t)]
+    if tests or (passes and fails):  # node:test summary, TAP (#) or spec (ℹ); also when grep kept only pass/fail
+        p, f = sum(passes), sum(fails)
+        return p, f, sum(tests) if tests else p + f
     m = re.findall(r"Tests?:\s+(.*?\d+ total)", t)
     if m:  # jest
         s = m[-1]
