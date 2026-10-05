@@ -26,6 +26,7 @@ RUNNERS = [
     ("swift test", r"^swift\s+test\b"),
     ("fastlane", r"^fastlane\s+(?:(?:ios|android|mac)\s+)?(?:test|tests|scan|run_tests|unit_tests?)\b"),
     ("rspec", r"(?:^|/)rspec\b"),
+    ("node --test", r"^node\s+(?:\S+\s+)*--test(?:\s|$)"),
     ("phpunit", r"(?:^|/)phpunit\b"),
 ]
 
@@ -150,7 +151,8 @@ def detect_scope(runner, seg):
         if tok.startswith("-"):
             skip = tok in ("-c", "--config", "-p", "--reporter", "--maxfail", "-n", "--workers",
                            "--project", "--configuration", "-scheme", "-destination", "-workspace",
-                           "--tb", "--timeout", "-timeout", "--package")
+                           "--tb", "--timeout", "-timeout", "--package", "--test-reporter",
+                           "--test-reporter-destination", "--test-concurrency")
             continue
         words.append(tok)
     ignore = {"test", "t", "run", "-m", "pytest", "unittest", "nextest", "exec", "--", "check",
@@ -201,6 +203,11 @@ def parse_counts(text):
         fm = re.search(r"FAILED \(([^)]*)\)", t)
         f = sum(_ints(r"(?:failures|errors)=(\d+)", fm.group(1))) if fm else 0
         return n - f, f, n
+    tests = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) tests (\d+)\s*$", t)]
+    if tests:  # node:test summary, TAP (# tests) or spec (ℹ tests); one block per run, summed
+        p = sum(int(x) for x in re.findall(r"(?m)^(?:#|ℹ) pass (\d+)\s*$", t))
+        f = sum(int(x) for x in re.findall(r"(?m)^(?:#|ℹ) (?:fail|cancelled) (\d+)\s*$", t))
+        return p, f, sum(tests)
     m = re.findall(r"Tests?:\s+(.*?\d+ total)", t)
     if m:  # jest
         s = m[-1]

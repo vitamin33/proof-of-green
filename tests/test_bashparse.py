@@ -59,6 +59,10 @@ RUNNERS = [
     ("pnpm -r test", "pnpm test", "all"),
     ("pnpm --filter web test", "pnpm test", "partial"),
     ("make check", "make test", "all"),
+    ("node --test", "node --test", "all"),
+    ("node --test test/a.test.js", "node --test", "partial"),
+    ("node --test --test-reporter spec", "node --test", "all"),
+    ("node --test --test-name-pattern login", "node --test", "partial"),
 ]
 
 
@@ -72,7 +76,7 @@ def test_runner_and_scope(command, runner, scope):
 @pytest.mark.parametrize("command", ["ls -la", "git status", "npm install", "pip install pytest",
                                      "cat tests/test_a.py", "echo test", "npm run build", "pnpm -r build",
                                      "fastlane beta", "git stash", "git checkout main -- calc.py",
-                                     "git worktree add ../wt feature"])
+                                     "git worktree add ../wt feature", "node scripts/build.js", "node --version"])
 def test_non_test_commands(command):
     assert bp.detect_runner(command) == (None, None)
 
@@ -208,3 +212,20 @@ def test_fastlane_release_lane_is_deploy_not_test():
     rec = bp.parse_bash({"tool_input": {"command": "bundle exec fastlane ios beta"}})
     assert rec["kind"] == "other" and rec.get("deploy") is True
     assert bp.parse_bash({"tool_input": {"command": "fastlane test"}})["kind"] == "test_run"
+
+
+NODE_TEST = [  # real node v22.22.0 output, 2026-10-05; local paths replaced with /project
+    ("pass_default.txt", (2, 0, 3)),     # 2 pass + 1 skipped
+    ("mixed_default.txt", (3, 1, 5)),    # default reporter when piped = TAP
+    ("mixed_tap.txt", (3, 1, 5)),
+    ("mixed_spec.txt", (3, 1, 5)),       # spec reporter: "ℹ tests 5", summary before failure details
+    ("mixed_npm_grep.txt", (3, 1, 5)),   # npm test 2>&1 | grep -E "^# (tests|pass|fail)|^not ok"
+]
+
+
+@pytest.mark.parametrize("name,expected", NODE_TEST)
+def test_node_test_summary(name, expected):
+    import os
+    from conftest import FIXTURES
+    with open(os.path.join(FIXTURES, "node_test", name), encoding="utf-8") as fh:
+        assert bp.parse_counts(fh.read()) == expected

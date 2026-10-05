@@ -165,3 +165,23 @@ def test_manifest_default_is_observe():
     from conftest import ROOT
     with open(os.path.join(ROOT, ".claude-plugin", "plugin.json")) as fh:
         assert json.load(fh)["userConfig"]["mode"]["default"] == "observe"
+
+
+def test_npm_test_with_node_test_tap_output_reaches_tier_a(session):
+    # Same shape as the Vitelle runs on 2026-10-05: npm test piped through grep for the TAP summary.
+    session.prompt()
+    session.edit()
+    session.bash('cd functions && npm test 2>&1 | grep -E "^# (tests|pass|fail)|^not ok"',
+                 "# tests 42\n# pass 42\n# fail 0\n")
+    assert session.stop("Fixed. All tests pass.") is None
+    assert claim_tiers(session) == {"tests_pass": "A", "fixed": "A"}
+
+
+def test_npm_test_with_node_test_failure_is_d(session):
+    session.prompt()
+    session.edit()
+    session.bash('npm test 2>&1 | grep -E "^# (tests|pass|fail)|^not ok"',
+                 "not ok 2 - breaks\n# tests 5\n# pass 4\n# fail 1\n")
+    out = session.stop("All tests pass.")
+    assert claim_tiers(session)["tests_pass"] == "D"
+    assert "failed (1 failed)" in out["systemMessage"]
