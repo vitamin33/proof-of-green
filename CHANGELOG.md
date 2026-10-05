@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 (2026-10-05, completes the 0.1.1 parser fix)
+
+- node:test results filtered down to `# pass N` and `# fail N` (no `# tests` line) are now counted as pass + fail. The Vitelle sessions often use `grep -E "^# (pass|fail)"`. Re-parsing that session's real outputs locally: 0.1.0 counted 0 of 14 test runs, 0.1.1 counted 4, 0.1.2 counts 12. The other 2 print no summary at all.
+- A lone `# pass` or `# fail` line, or bare `ok` / `not ok` lines, still stay unknown.
+
 ## 0.1.1 (2026-10-05, mid-observe-week parser fix)
 
 - Parse node:test results: the TAP summary (`# tests / # pass / # fail / # cancelled`) and the spec reporter (`ℹ tests …`). This also works when the output is piped through `grep` for those lines, as in the Vitelle sessions. Before this, such runs were stored with `collected = null` and could reach tier B at most.
