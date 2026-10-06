@@ -131,6 +131,16 @@ grep -h '"kind":"test_run"' ~/.claude/plugins/data/proof-of-green-proof-of-green
 
 Pass: `no errors`. The report's `unparsed test runs` count is small next to the total runs. The third command lists each unparsed command with its count. Runs with `run_in_background` in the flags are expected there, because their output never reaches the hook. Anything else that repeats is a runner output format to add.
 
+## 11. Two data folders (found 2026-10-06)
+
+Sessions launched by the Claude desktop app load the plugin as `inline` and write to `proof-of-green-inline`. Terminal `claude` and `claude agents` sessions write to `proof-of-green-proof-of-green`. When a session moves between the two (the desktop app restarted at 02:45 on 2026-10-06), its records are split across both folders, each with its own `seq`. Check and analyse both:
+
+```bash
+for d in ~/.claude/plugins/data/proof-of-green-proof-of-green ~/.claude/plugins/data/proof-of-green-inline; do echo "== $d"; cat $d/errors.log 2>/dev/null || echo "no errors"; python3 ~/src/proof-of-green/scripts/report.py --all --data $d | head -12; done
+```
+
+Not covered at all: `claude` processes started before the install (they never load hooks; restart them), and Codex sessions (the plugin is enabled in `~/.codex/config.toml`, but no data folder appears).
+
 ## Clean up
 
 ```bash
