@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 (2026-10-07, report only)
+
+- `/proof-of-green:report` shows the session you run it in (via `${CLAUDE_SESSION_ID}`). Before, it showed whichever session file was written last, often another session.
+- If the current session has no record, the report says so and how to fix it: the session most likely started before the plugin was installed or updated, so restart it with `claude --resume <id>`.
+- The report reads every proof-of-green data folder. Desktop-app sessions write to `proof-of-green-inline` and terminal sessions to `proof-of-green-proof-of-green`, so `--all` now covers both.
+- Data collection is unchanged.
+
 ## 0.1.2 (2026-10-05, completes the 0.1.1 parser fix)
 
 - node:test results filtered down to `# pass N` and `# fail N` (no `# tests` line) are now counted as pass + fail. The Vitelle sessions often use `grep -E "^# (pass|fail)"`. Re-parsing that session's real outputs locally: 0.1.0 counted 0 of 14 test runs, 0.1.1 counted 4, 0.1.2 counts 12. The other 2 print no summary at all.

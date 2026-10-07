@@ -6,14 +6,24 @@ from collections import Counter
 from . import bashparse, ledger, tiers
 
 
-def find_data_dir(explicit=None):
+def data_dirs(explicit=None):
+    """Every proof-of-green data folder. Desktop-app sessions write to `-inline`, terminal ones to
+    `-<marketplace>`, so one report has to look in all of them."""
     if explicit and not explicit.startswith("${"):
-        return explicit
-    if ledger.data_dir():
-        return ledger.data_dir()
-    # The command's Bash call may not inherit CLAUDE_PLUGIN_DATA; look where Claude Code keeps it.
-    candidates = glob.glob(os.path.expanduser("~/.claude/plugins/data/proof-of-green*"))
-    return max(candidates, key=_newest, default=None)
+        return [explicit]
+    dirs = ([ledger.data_dir()] if ledger.data_dir() else []) + \
+        sorted(glob.glob(os.path.expanduser("~/.claude/plugins/data/proof-of-green*")))
+    out = []
+    for d in dirs:
+        if os.path.realpath(d) not in [os.path.realpath(x) for x in out]:
+            out.append(d)
+    return out
+
+
+def find_data_dir(explicit=None):
+    """Kept for callers that need one folder: the one written most recently."""
+    dirs = data_dirs(explicit)
+    return max(dirs, key=_newest, default=None)
 
 
 def _newest(path):
@@ -98,24 +108,42 @@ def render(s, label):
     return "\n".join(lines)
 
 
+def _arg(argv, name):
+    if name in argv and argv.index(name) + 1 < len(argv):
+        value = argv[argv.index(name) + 1]
+        return None if value.startswith("${") or value.startswith("-") else value
+    return None
+
+
 def main(argv):
-    data = None
-    if "--data" in argv and argv.index("--data") + 1 < len(argv):
-        data = argv[argv.index("--data") + 1]
-    base = find_data_dir(data)
-    files = sorted(glob.glob(os.path.join(base, "sessions", "*.jsonl")), key=os.path.getmtime) if base else []
-    if not files:
-        print("proof-of-green: no sessions recorded yet. Data folder: %s" % (base or "~/.claude/plugins/data/proof-of-green-*"))
-        return 0
-    if "--all" not in argv:
+    dirs = data_dirs(_arg(argv, "--data"))
+    session = _arg(argv, "--session")
+    files = sorted((f for d in dirs for f in glob.glob(os.path.join(d, "sessions", "*.jsonl"))),
+                   key=os.path.getmtime)
+    folders = ", ".join(ledger.home_to_tilde(d) for d in dirs) or "~/.claude/plugins/data/proof-of-green-*"
+    if "--all" not in argv and session:
+        files = [f for f in files if os.path.basename(f) == session + ".jsonl"]
+        if not files:
+            print("proof-of-green: this session (%s) has no record. It most likely started before the plugin "
+                  "was installed or updated, so its hooks are not loaded. Restart it: /exit, then "
+                  "claude --resume %s\nData folders checked: %s" % (session[:8], session, folders))
+            return 0
+    elif "--all" not in argv:
         files = files[-1:]
+    if not files:
+        print("proof-of-green: no sessions recorded yet. Data folders: %s" % folders)
+        return 0
     sessions = [(os.path.basename(f)[:-6], ledger.read(f)) for f in files]
     summary = summarize(sessions)
-    if len(files) > 1:
-        label = "%d sessions in %d projects (%s)" % (len(files), len(summary["projects"]), ", ".join(
+    ids = {name for name, _ in sessions}
+    if len(ids) > 1:
+        label = "%d sessions in %d projects (%s)" % (len(ids), len(summary["projects"]), ", ".join(
             "%s ×%d" % kv for kv in summary["projects"].most_common()))
     else:
-        label = "session %s, project %s" % (sessions[0][0][:8], project_of(sessions[0][1]))
+        label = "session %s, project %s" % (sessions[0][0][:8], project_of(sessions[-1][1]))
+        if len(files) > 1:
+            label += " (recorded in %d data folders)" % len(files)
     print(render(summary, label))
-    print("data: %s" % ledger.home_to_tilde(base))
+    used = sorted({os.path.dirname(os.path.dirname(f)) for f in files})
+    print("data: %s" % ", ".join(ledger.home_to_tilde(d) for d in used))
     return 0

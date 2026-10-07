@@ -76,3 +76,39 @@ def test_unparsed_none(data, capsys):
     _scripted("dddd4444")
     report.main(["--data", str(data)])
     assert "unparsed test runs         0 (none)" in capsys.readouterr().out
+
+
+def test_report_current_session_by_id(data, capsys):
+    _scripted("aaaa1111")
+    _scripted("bbbb2222")          # newest file; the old behaviour would have shown this one
+    report.main(["--data", str(data), "--session", "aaaa1111"])
+    out = capsys.readouterr().out
+    assert "session aaaa1111" in out and "bbbb2222" not in out
+
+
+def test_report_unrecorded_session_says_restart(data, capsys):
+    _scripted("aaaa1111")
+    report.main(["--data", str(data), "--session", "zzzz9999-not-recorded"])
+    out = capsys.readouterr().out
+    assert "has no record" in out and "claude --resume zzzz9999-not-recorded" in out
+
+
+def test_report_unsubstituted_session_placeholder_falls_back(data, capsys):
+    _scripted("aaaa1111")
+    report.main(["--data", str(data), "--session", "${CLAUDE_SESSION_ID}"])
+    assert "session aaaa1111" in capsys.readouterr().out
+
+
+def test_report_reads_all_data_folders(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    base = tmp_path / ".claude" / "plugins" / "data"
+    for folder, sid in (("proof-of-green-proof-of-green", "term1111"), ("proof-of-green-inline", "desk2222")):
+        monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(base / folder))
+        _scripted(sid)
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA")
+    report.main(["--all"])
+    out = capsys.readouterr().out
+    assert "2 sessions" in out and "proof-of-green-inline" in out and "proof-of-green-proof-of-green" in out
+    report.main(["--session", "desk2222"])
+    assert "session desk2222" in capsys.readouterr().out
