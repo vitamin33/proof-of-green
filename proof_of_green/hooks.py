@@ -106,10 +106,39 @@ def on_edit(p):
     ledger.append(sid, _agent(p, {"kind": "edit", "path": path, "is_test": is_test, "code": code}))
 
 
+def _bash_edits(p, command, project):
+    """Edit records for files the command writes (D6). Same rules as Edit/Write: inside the
+    project, not a test, not a doc counts as code."""
+    writes, patch, first = bashparse.write_targets(command)
+    cwd = p.get("cwd") if isinstance(p.get("cwd"), str) else ""
+    edits = []
+    for path, cd in writes:
+        full = os.path.expanduser(path)
+        if not os.path.isabs(full):
+            full = os.path.normpath(os.path.join(cwd, os.path.expanduser(cd), full))
+        rel, is_test, code = classify(full, project)
+        edits.append(_agent(p, {"kind": "edit", "via": "bash", "path": rel, "is_test": is_test, "code": code}))
+    if patch:
+        edits.append(_agent(p, {"kind": "edit", "via": "bash", "path": "(patch)", "is_test": False, "code": True}))
+    return edits, first
+
+
 def on_bash(p):
-    rec = bashparse.parse_bash(p, os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND"))
+    test_command = os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND")
+    rec = _agent(p, bashparse.parse_bash(p, test_command))
     rec["event"] = p.get("hook_event_name") or "PostToolUse"
-    ledger.append(p.get("session_id"), _agent(p, rec))
+    sid = p.get("session_id")
+    tin = p.get("tool_input") if isinstance(p.get("tool_input"), dict) else {}
+    command = tin.get("command") if isinstance(tin.get("command"), str) else ""
+    edits, first = _bash_edits(p, command, _session_project(sid, p)) if command else ([], None)
+    order = edits + [rec]
+    if edits and rec["kind"] == "test_run":
+        _, seg = bashparse.detect_runner(command, test_command)
+        run_at = command.find(seg) if seg else -1
+        if 0 <= run_at < (first or 0):  # "npm test && sed -i ...": the run came before the write
+            order = [rec] + edits
+    for r in order:
+        ledger.append(sid, r)
 
 
 def on_stop(p):
@@ -121,14 +150,16 @@ def on_stop(p):
         ledger.append(sid, {"kind": "stop", "has_message": isinstance(message, str) and bool(message.strip())})
         return None
     records = ledger.read(ledger.session_path(sid))
-    turn = ledger.current_turn(records)
     graded = []
     for c in found:
         tier, reason = tiers.evidence(records, c["type"])
         graded.append(dict(c, tier=tier, reason=reason))
     m = mode()
-    edited_this_turn = any(r.get("turn") == turn for r in tiers.code_edits(records))
-    act = (m == "warn" and not p.get("stop_hook_active") and edited_this_turn
+    # D1 (v0.2): a code edit since the previous Stop, so work that finished in a background
+    # subagent and came back as a new prompt still counts.
+    prev_stop = max([r["seq"] for r in records if r.get("kind") in ("stop", "verdict")] + [0])
+    edited_since_stop = any(r["seq"] > prev_stop for r in tiers.code_edits(records))
+    act = (m == "warn" and not p.get("stop_hook_active") and edited_since_stop
            and tiers.warning(graded) is not None)
     ledger.append(sid, {"kind": "verdict", "mode": m, "acted": act,
                         "claims": [{"type": c["type"], "scope": c["scope"], "tier": c["tier"]} for c in graded]})

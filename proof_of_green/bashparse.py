@@ -190,22 +190,28 @@ def parse_counts(text):
     if not text:
         return None, None, None
     t = text[-20000:]
-    m = re.findall(r"=+ (.*?(?:passed|failed|error|errors|no tests ran|deselected|skipped).*?) in [\d.]+s", t)
-    if m:  # pytest summary line
+    m = re.findall(r"=+ (.*?(?:passed|failed|error|errors|no tests ran|deselected|skipped).*?) in [\d.]+s", t) or \
+        re.findall(r"(?m)^\s*((?:\d+ (?:passed|failed|errors?|skipped|xfailed|xpassed|deselected|warnings?),? ?)+)"
+                   r" in [\d.]+s\s*$", t)
+    if m:  # pytest summary line, with or without the ==== banner (-q)
         s = m[-1]
         p = sum(_ints(r"(\d+) passed", s))
         f = sum(_ints(r"(\d+) failed", s)) + sum(_ints(r"(\d+) errors?", s))
         sk = sum(_ints(r"(\d+) skipped", s)) + sum(_ints(r"(\d+) xfailed", s))
         return p, f, p + f + sk
+    m = re.search(r"Interrupted: (\d+) errors? during collection", t)
+    if m:  # pytest stopped before running anything
+        return 0, int(m.group(1)), int(m.group(1))
     m = re.search(r"Ran (\d+) tests? in", t)
     if m:  # unittest
         n = int(m.group(1))
         fm = re.search(r"FAILED \(([^)]*)\)", t)
         f = sum(_ints(r"(?:failures|errors)=(\d+)", fm.group(1))) if fm else 0
         return n - f, f, n
-    tests = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) tests (\d+)\s*$", t)]
-    passes = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) pass (\d+)\s*$", t)]
-    fails = [int(x) for x in re.findall(r"(?m)^(?:#|ℹ) (?:fail|cancelled) (\d+)\s*$", t)]
+    # node:test summary lines; also when an agent echoed them onto one line ("unit: # pass 5 # fail 0")
+    tests = [int(x) for x in re.findall(r"(?m)(?:^|[\s:])(?:#|ℹ) tests (\d+)(?=\s|$)", t)]
+    passes = [int(x) for x in re.findall(r"(?m)(?:^|[\s:])(?:#|ℹ) pass (\d+)(?=\s|$)", t)]
+    fails = [int(x) for x in re.findall(r"(?m)(?:^|[\s:])(?:#|ℹ) (?:fail|cancelled) (\d+)(?=\s|$)", t)]
     if tests or (passes and fails):  # node:test summary, TAP (#) or spec (ℹ); also when grep kept only pass/fail
         p, f = sum(passes), sum(fails)
         return p, f, sum(tests) if tests else p + f
@@ -331,3 +337,92 @@ def parse_bash(payload, test_command=None):
         "flags": detect_flags(command, background),
     })
     return rec
+
+
+# --- writes made through the shell (v0.2, DECISIONS.md D6) -------------------------------------
+CODE_FILE = re.compile(r"(?<![\w<>$/])((?:/|~/)?(?:[\w.~-]+/)*[\w.-]+\.(?:py|ts|tsx|js|jsx|mjs|cjs|dart|swift|kt|kts|java|go|"
+                       r"rs|rb|php|cs|vue|svelte|sql))(?![\w])")
+REDIRECT_INTO = re.compile(r"(?<![<>&\d])>{1,2}\s*([\w.~/-]+)")
+TEE_INTO = re.compile(r"\btee\s+(?:-a\s+)?([\w.~/-]+)")
+IN_PLACE = re.compile(r"\bsed\s+(?:-\S+\s+)*-i\b|\bperl\s+-\w*i")
+SCRIPT_HEREDOC = re.compile(r"\b(?:python3?|node|ruby|perl)\s+-\s*<<")
+SCRIPT_WRITES = re.compile(r"\.write_text\(|\.write_bytes\(|open\([^)]*['\"][wa]\+?['\"]|writeFile")
+APPLIES_PATCH = re.compile(r"\bpatch\s|\bgit\s+apply\b")
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+
+
+_LIT = r"(['\"])([^'\"\n]+)\1"
+_WRITE_CALLS = [
+    re.compile(r"\bopen\(\s*" + _LIT + r"\s*,\s*['\"][wa]"),                       # open("x.py", "w")
+    re.compile(r"\bPath\(\s*" + _LIT + r"\s*\)\.write_(?:text|bytes)\("),           # Path("x.py").write_text(
+    re.compile(r"\bwriteFile(?:Sync)?\(\s*" + _LIT),                                # fs.writeFileSync("x.js"
+]
+_WRITE_VARS = [
+    re.compile(r"\bopen\(\s*([A-Za-z_]\w*)\s*,\s*['\"][wa]"),                       # open(p, "w")
+    re.compile(r"\b([A-Za-z_]\w*)\.write_(?:text|bytes)\("),                         # p.write_text(
+    re.compile(r"\bwriteFile(?:Sync)?\(\s*([A-Za-z_]\w*)\s*,"),                       # writeFileSync(p,
+]
+
+
+def script_write_targets(script):
+    """Files a heredoc script writes: literal targets of open(..., "w"), Path(...).write_text and
+    writeFileSync, plus variables resolved to their string assignment (p = "x.py"; open(p, "w"))."""
+    out = []
+    for rx in _WRITE_CALLS:
+        out += [m.group(2) for m in rx.finditer(script)]
+    for rx in _WRITE_VARS:
+        for var in set(m.group(1) for m in rx.finditer(script)):
+            assign = re.compile(r"\b(?:const\s+|let\s+|var\s+)?" + re.escape(var) +
+                                r"\s*=\s*(?:Path\(|pathlib\.Path\()?\s*" + _LIT)
+            out += [m.group(2) for m in assign.finditer(script)]
+    return out
+
+
+def _code_files(text):
+    return [m for m in CODE_FILE.findall(text) if CODE_FILE.fullmatch(m)]
+
+
+def write_targets(command):
+    """Code files a shell command writes, best effort. Returns (writes, applies_patch, first_pos).
+
+    writes is [(path, cd_dir)]: path as written in the command, cd_dir the last `cd` before it
+    in the same command (or ""). Only explicit writes count: > or >> into a code file, tee,
+    sed -i / perl -i on a code file, and a python/node/ruby/perl heredoc script that opens files
+    for writing and names a code file. Reading a file never counts.
+    """
+    command = command or ""
+    writes, first = [], None
+    cd, pos = "", 0
+    for seg in re.split(r"(&&|\|\||[;\n|])", command):
+        start = command.find(seg, pos) if seg else pos
+        pos = start + len(seg)
+        s = seg.strip()
+        m = re.match(r"^cd\s+(\S+)", s)
+        if m:
+            cd = m.group(1).strip("'\"")
+            continue
+        found = [t for t in REDIRECT_INTO.findall(s) if CODE_FILE.fullmatch(t)]
+        found += [t for t in TEE_INTO.findall(s) if CODE_FILE.fullmatch(t)]
+        if IN_PLACE.search(s):
+            found += _code_files(QUOTED.sub(" ", s))
+        for path in found:
+            writes.append((path, cd))
+            first = start if first is None else first
+    if SCRIPT_HEREDOC.search(command) and SCRIPT_WRITES.search(command):
+        at = SCRIPT_HEREDOC.search(command).start()
+        before = [m.group(1) for m in re.finditer(r"(?:^|&&|;|\n)\s*cd\s+(\S+)", command[:at])]
+        targets = [t for t in script_write_targets(command[at:]) if CODE_FILE.fullmatch(t)]
+        for path in targets:
+            writes.append((path, before[-1].strip("'\"") if before else ""))
+        if targets:
+            first = at if first is None else min(first, at)
+    patch = bool(APPLIES_PATCH.search(command))
+    if patch:
+        at = APPLIES_PATCH.search(command).start()
+        first = at if first is None else min(first, at)
+    seen, unique = set(), []
+    for w in writes:
+        if w not in seen:
+            seen.add(w)
+            unique.append(w)
+    return unique, patch, first

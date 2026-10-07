@@ -185,3 +185,47 @@ def test_npm_test_with_node_test_failure_is_d(session):
     out = session.stop("All tests pass.")
     assert claim_tiers(session)["tests_pass"] == "D"
     assert "failed (1 failed)" in out["systemMessage"]
+
+
+def bash_write(session, command, output="", exit_code=0):
+    return session.bash(command, output, exit_code)
+
+
+def test_bash_sed_edit_counts_as_code_edit(session):
+    session.prompt()
+    session.bash("python3 -m unittest", PASS_ALL)
+    bash_write(session, 'sed -i "" "s/a - b/a + b/" calc.py')
+    edits = [r for r in session.records() if r["kind"] == "edit"]
+    assert [(e["path"], e["code"], e.get("via")) for e in edits] == [("calc.py", True, "bash")]
+    out = session.stop("Fixed. All tests pass.")
+    assert claim_tiers(session) == {"tests_pass": "C", "fixed": "C"}
+    assert "no test run after your last edit" in out["systemMessage"]
+
+
+def test_write_then_test_in_one_command_is_a(session):
+    session.prompt()
+    session.bash('sed -i "" "s/a - b/a + b/" calc.py && python3 -m unittest', PASS_ALL)
+    kinds = [r["kind"] for r in session.records() if r["kind"] in ("edit", "test_run")]
+    assert kinds == ["edit", "test_run"]
+    assert session.stop("Fixed. All tests pass.") is None
+    assert claim_tiers(session) == {"tests_pass": "A", "fixed": "A"}
+
+
+def test_test_then_write_in_one_command_is_c(session):
+    session.prompt()
+    session.bash('python3 -m unittest && sed -i "" "s/a - b/a + b/" calc.py', PASS_ALL)
+    kinds = [r["kind"] for r in session.records() if r["kind"] in ("edit", "test_run")]
+    assert kinds == ["test_run", "edit"]
+    session.stop("Fixed. All tests pass.")
+    assert claim_tiers(session)["tests_pass"] == "C"
+
+
+def test_bash_writes_to_tests_docs_and_outside_are_not_code(session):
+    session.prompt()
+    session.bash("cat >> tests/test_calc.py <<EOF\nx\nEOF")
+    session.bash("echo x > README.md")
+    session.bash('sed -i "" s/a/b/ /tmp/scratch/fix.py')
+    edits = [r for r in session.records() if r["kind"] == "edit"]
+    assert [(e["path"], e["is_test"], e["code"]) for e in edits] == [
+        ("tests/test_calc.py", True, True), ("(outside project)", False, False)]
+    assert session.stop("Done. All tests pass.") is None

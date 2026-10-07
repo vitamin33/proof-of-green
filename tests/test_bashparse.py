@@ -237,3 +237,38 @@ def test_node_test_summary(name, expected):
     from conftest import FIXTURES
     with open(os.path.join(FIXTURES, "node_test", name), encoding="utf-8") as fh:
         assert bp.parse_counts(fh.read()) == expected
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("....\n4 passed in 0.02s\n", (4, 0, 4)),                         # pytest -q, no banner
+    ("F..\n1 failed, 2 passed, 1 skipped in 0.10s\n", (2, 1, 4)),
+    ("!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!", (0, 2, 2)),
+    ("unit: # pass 5 # fail 0\n", (5, 0, 5)),                           # node summary echoed on one line
+    ("api: # tests 7 # pass 6 # fail 1", (6, 1, 7)),
+])
+def test_v02_parser_formats(text, expected):
+    assert bp.parse_counts(text) == expected
+
+
+@pytest.mark.parametrize("command,writes,patch", [
+    ('sed -i "" "s/x/y/" cycles/erasure.js && npm test', [("cycles/erasure.js", "")], False),
+    ('cd functions && sed -i "" "s/x/y/" index.js lib/a.ts', [("index.js", "functions"), ("lib/a.ts", "functions")], False),
+    ("cat > src/api/client.ts <<EOF\nexport const x = 1\nEOF", [("src/api/client.ts", "")], False),
+    ("cat >> test/a.test.js <<EOF\nx\nEOF", [("test/a.test.js", "")], False),
+    ('python3 - <<"EOF"\np="cycles/erasure.js"\nopen(p, "w").write(s)\nEOF', [("cycles/erasure.js", "")], False),
+    ('python3 - <<"EOF"\nprint(open("a.py").read())\nEOF', [], False),
+    ('python3 - <<"EOF"\nsrc = open("lib/a.py").read()\nopen("report.json", "w").write(src)\nEOF', [], False),
+    ('python3 - <<"EOF"\nfrom pathlib import Path\nPath("src/b.ts").write_text("x")\nEOF', [("src/b.ts", "")], False),
+    ('python3 - <<"EOF"\nfor f in ["a.py", "b.py", "c.py"]:\n    print(open(f).read())\nEOF', [], False),
+    ("node - <<'EOF'\nconst fs = require('fs'); const p = 'src/x.js'; fs.writeFileSync(p, 'y')\nEOF", [("src/x.js", "")], False),
+    ("cat src/a.ts | tee src/b.ts", [("src/b.ts", "")], False),
+    ("git apply fix.patch", [], True),
+    ("node scripts/gen.js > out.log", [], False),
+    ("grep -n foo src/a.ts > /tmp/x.txt", [], False),
+    ("sed -n 10,20p src/a.ts", [], False),
+    ("echo x > README.md", [], False),
+    ("npm test 2>&1 | grep -E '^# (pass|fail)'", [], False),
+])
+def test_write_targets(command, writes, patch):
+    got, got_patch, _ = bp.write_targets(command)
+    assert got == writes and got_patch is patch
