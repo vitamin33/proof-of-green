@@ -20,6 +20,9 @@ def last_edit_seq(records):
 
 
 def _failed(run):
+    if run.get("exit_masked"):
+        # piped without pipefail: the exit code is not the tests'; only the counts can say "failed"
+        return (run.get("failed") or 0) > 0
     code = run.get("exit_code")
     return code is None or code != 0 or (run.get("failed") or 0) > 0
 
@@ -59,6 +62,8 @@ def evidence(records, claim_type):
     good = [r for r in after if not r.get("flags") and not _failed(r) and r.get("collected") != 0]
     if not good:
         return "D", "last test run collected 0 tests"
+    if all(r.get("exit_masked") and r.get("collected") is None for r in good):
+        return "B", "test result not visible: exit code masked by a pipe (| tail, | grep) and no counts in the output"
     if any(r.get("scope") == "all" and (r.get("collected") or 0) > 0 for r in good):
         return "A", "full test run passed after edit"
     return "B", "only a partial test run after your edit"

@@ -112,3 +112,13 @@ def test_report_reads_all_data_folders(tmp_path, monkeypatch, capsys):
     assert "2 sessions" in out and "proof-of-green-inline" in out and "proof-of-green-proof-of-green" in out
     report.main(["--session", "desk2222"])
     assert "session desk2222" in capsys.readouterr().out
+
+
+def test_report_counts_masked_runs(data, capsys):
+    s = Session(sid="masked1")
+    s.start()
+    s.prompt()
+    s.bash("npm test 2>&1 | tail -20", "Tests: 3 passed, 3 total")
+    s.bash("pytest -q", "==== 2 passed in 0.1s ====")
+    report.main(["--data", str(data), "--session", "masked1"])
+    assert "exit code masked by pipe   1" in capsys.readouterr().out

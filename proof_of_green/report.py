@@ -51,7 +51,7 @@ def summarize(sessions):
     """sessions: list of (session_name, records). Returns dict of numbers."""
     s = {"sessions": len(sessions), "turns": 0, "edit_turns": 0, "edit_turns_no_claim": 0,
          "claims": Counter(), "tiers": Counter(), "warnings": 0, "flags": Counter(), "examples": [],
-         "unparsed": Counter(), "projects": Counter()}
+         "unparsed": Counter(), "projects": Counter(), "masked": 0}
     for name, records in sessions:
         project = project_of(records)
         s["projects"][project] += 1
@@ -61,6 +61,7 @@ def summarize(sessions):
         for r in records:
             if r.get("kind") == "test_run":
                 s["flags"].update(r.get("flags") or [])
+                s["masked"] += 1 if r.get("exit_masked") else 0
                 if r.get("collected") is None:
                     s["unparsed"][unparsed_prefix(r.get("command"))] += 1
             if r.get("kind") != "verdict":
@@ -95,6 +96,7 @@ def render(s, label):
         "edit turns with no claim   %.0f%%" % pct,
         "suspicious test flags      %d (%s)" % (sum(s["flags"].values()), flags),
         "unparsed test runs         %d (%s)" % (sum(s["unparsed"].values()), unparsed),
+        "exit code masked by pipe   %d (| tail, | grep without pipefail; judged by counts only)" % s["masked"],
         "",
         "stale / unsupported claims (latest 3):",
     ]

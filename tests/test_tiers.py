@@ -229,3 +229,41 @@ def test_bash_writes_to_tests_docs_and_outside_are_not_code(session):
     assert [(e["path"], e["is_test"], e["code"]) for e in edits] == [
         ("tests/test_calc.py", True, True), ("(outside project)", False, False)]
     assert session.stop("Done. All tests pass.") is None
+
+
+def test_masked_exit_code_with_failures_in_output_is_d(session):
+    session.prompt()
+    session.edit()
+    session.bash("pytest -q | tail -5", "1 failed, 3 passed in 0.10s")        # exit 0 from tail
+    out = session.stop("All tests pass.")
+    assert claim_tiers(session)["tests_pass"] == "D"
+    assert "failed (1 failed)" in out["systemMessage"]
+
+
+def test_masked_exit_code_with_clean_counts_is_a(session):
+    session.prompt()
+    session.edit()
+    session.bash("pytest -q | tail -3", "4 passed in 0.10s")
+    assert session.stop("All tests pass.") is None
+    assert claim_tiers(session)["tests_pass"] == "A"
+
+
+def test_masked_nonzero_exit_without_counts_is_not_a_failure(session):
+    # grep -c finds no FAIL lines and exits 1; the tests may well have passed
+    session.prompt()
+    session.edit()
+    session.bash("npm test 2>&1 | grep -c FAIL", "0", exit_code=1)
+    assert session.stop("Fixed.") is None
+    tiers_ = claim_tiers(session)
+    assert tiers_ == {"fixed": "B"}
+    from proof_of_green import tiers as t
+    recs = [r for r in session.records() if r["seq"] < session.verdicts()[-1]["seq"]]
+    assert "exit code masked by a pipe" in t.evidence(recs, "tests_pass")[1]
+
+
+def test_pipefail_keeps_the_exit_code(session):
+    session.prompt()
+    session.edit()
+    session.bash("set -o pipefail; npm test | tail -20", "", exit_code=1)
+    session.stop("All tests pass.")
+    assert claim_tiers(session)["tests_pass"] == "D"

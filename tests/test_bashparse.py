@@ -272,3 +272,19 @@ def test_v02_parser_formats(text, expected):
 def test_write_targets(command, writes, patch):
     got, got_patch, _ = bp.write_targets(command)
     assert got == writes and got_patch is patch
+
+
+@pytest.mark.parametrize("command,masked", [
+    ("npm test 2>&1 | tail -20", True),
+    ("cd app && pytest -q | tail -5", True),
+    ("npm test | grep -c FAIL", True),
+    ("pytest -q", False),
+    ("pytest -q || true", False),                       # flagged as suspicious instead
+    ("set -o pipefail; npm test | tail -20", False),
+    ("npm test | tee out.log; echo ${PIPESTATUS[0]}", False),
+    ("npm test && echo done | cat", False),             # the pipe belongs to echo, not to the tests
+])
+def test_exit_masked(command, masked):
+    rec = bp.parse_bash({"tool_input": {"command": command}, "tool_response": {"stdout": ""}})
+    assert rec["kind"] == "test_run"
+    assert bool(rec.get("exit_masked")) is masked

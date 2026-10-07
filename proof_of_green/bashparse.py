@@ -336,7 +336,21 @@ def parse_bash(payload, test_command=None):
         "passed": passed, "failed": failed, "collected": collected,
         "flags": detect_flags(command, background),
     })
+    if exit_masked(command, seg):
+        rec["exit_masked"] = True
     return rec
+
+
+def exit_masked(command, seg):
+    """True when the test command's output is piped into another command (`npm test | tail -20`)
+    without pipefail: the exit code then belongs to the last command, not to the tests."""
+    if not seg or re.search(r"\bpipefail\b|PIPESTATUS", command or ""):
+        return False
+    at = (command or "").find(seg)
+    if at < 0:
+        return False
+    rest = command[at + len(seg):]
+    return bool(re.match(r"\s*\|(?!\|)", rest))
 
 
 # --- writes made through the shell (v0.2, DECISIONS.md D6) -------------------------------------
