@@ -15,7 +15,7 @@ Options:
 
 My suggestion: 2. It is one line, it needs no new event, and it covers this case.
 
-**Decision (2026-10-02): option 2 agreed in principle. Not implemented until the observe week ends.** The week's data will be scored under both rules: "a code edit in this turn" (current) and "a code edit since the previous Stop" (option 2). Both can be computed from the ledger afterwards, because every record carries its `turn` and `seq`. To make option 2 computable, every Stop now leaves a record: a `verdict` when the reply has a claim, a `stop` record otherwise. This is data only and does not change when a warning fires.
+**Decision (2026-10-02): option 2 agreed in principle. Not implemented until the observe week ends.** Update 2026-10-07: implemented on branch `v0.2` (not installed). The week's data will be scored under both rules: "a code edit in this turn" (current) and "a code edit since the previous Stop" (option 2). Both can be computed from the ledger afterwards, because every record carries its `turn` and `seq`. To make option 2 computable, every Stop now leaves a record: a `verdict` when the reply has a claim, a `stop` record otherwise. This is data only and does not change when a warning fires.
 
 ## D2. Store `agent_id` on records from subagents
 
@@ -55,7 +55,7 @@ Question: should edits under `.claude/worktrees/` count? Counting them is right 
 
 `sed -i`, `cat > file`, `patch`, `python - <<EOF` that writes files: none of these create an edit record, because only Edit, Write and MultiEdit hooks record edits. So a session where Claude edits only through Bash never warns. The README states this. Detecting it would mean guessing from command text.
 
-**Decision: keep for v0.** Listed in LATER.md as a known blind spot.
+**Decision: keep for v0.** Listed in LATER.md as a known blind spot. Update 2026-10-07: implemented on branch `v0.2` after the interim analysis showed it was the largest source of error. Under the old rule 65 of 95 claims were A/B; counting shell writes into code files, 36 to 37 are.
 
 ## Not a decision, but you asked for it
 

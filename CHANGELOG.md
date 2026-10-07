@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 (candidate on branch `v0.2`, not installed; the observe week runs 0.1.2)
+
+- Edits made through the shell count as code edits (DECISIONS.md D6). This covers `>` / `>>` into a code file (also `cat > f <<EOF`), `tee`, `sed -i` and `perl -i` on a code file, `git apply` / `patch`, and a python/node/ruby/perl heredoc script that writes a code file. The target is taken from `open(..., "w")`, `Path(...).write_text` or `writeFileSync`, with simple variable resolution. Edit and Write rules still apply: inside the project, not a test, not a doc. When one command both edits and runs tests, the order in the command decides which came first.
+- Warn condition: a code edit since the previous Stop, instead of in this turn (DECISIONS.md D1). Work by a background subagent that comes back as a new prompt now counts.
+- Parser: pytest `-q` summary without the `====` banner, pytest "Interrupted: N errors during collection", and node:test summaries echoed onto one line.
+- Checked offline against the observe week's real commands with `analysis/observe_week.py --v02` (22 sessions, 96 claims). Shell writes into code files: 136, plus 31 patches. Tiers moved from A 23 / B 42 / C 14 / D 17 to A 10 / B 27 / C 43 / D 16. Would-warn cases in warn mode went from 3 to 15. Whether those 15 are fair still needs a manual check.
+
 ## 0.1.2 (2026-10-05, completes the 0.1.1 parser fix)
 
 - node:test results filtered down to `# pass N` and `# fail N` (no `# tests` line) are now counted as pass + fail. The Vitelle sessions often use `grep -E "^# (pass|fail)"`. Re-parsing that session's real outputs locally: 0.1.0 counted 0 of 14 test runs, 0.1.1 counted 4, 0.1.2 counts 12. The other 2 print no summary at all.
