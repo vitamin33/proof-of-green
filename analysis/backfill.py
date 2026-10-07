@@ -34,6 +34,7 @@ INSTALL = datetime.datetime(2026, 10, 2, 17, 29, tzinfo=datetime.timezone.utc).t
 EXCLUDE_PROJECTS = {"8499de"}  # the plugin's own repo
 EXCLUDE_CWD = ("/private/tmp/", "/tmp/", os.path.expanduser("~/.cache/"))  # scratch fixtures and test runs
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit"}
+PIPE_MASK = __import__("re").compile(r"\|\s*(?:tail|head|grep|sed|awk|cut|wc|tee)\b")  # exit code becomes the last command's
 
 
 def ts_of(e):
@@ -143,6 +144,8 @@ def replay(sid, files):
                         payload["tool_response"] = tur if isinstance(tur, dict) else result_text(b, e)
                     rec = bashparse.parse_bash(payload)
                     rec.pop("command", None)  # nothing from the command is kept
+                    if rec["kind"] == "test_run":
+                        rec["piped"] = bool(PIPE_MASK.search(cmd)) and "pipefail" not in cmd
                     edits = []
                     writes, patch, first = bashparse.write_targets(cmd)
                     for path, cd in writes:
@@ -193,12 +196,18 @@ def grade(recs, stops, rule, c):
         since = any(prev < e["seq"] < s["seq"] for e in edits)
         if bad and (in_turn if rule == "v0.1" else since):
             c["would_warn"] += 1
+            for g in graded:
+                if g["tier"] in "CD":
+                    c["warn_type_" + g["type"]] += 1
             nxt = next((r for r in rs if r["seq"] > s["seq"] and r.get("kind") == "test_run"
                         and r.get("exit_code") is not None), None)
             if nxt is not None and (nxt.get("exit_code") or (nxt.get("failed") or 0) > 0):
                 c["confirmed_false_green"] += 1
         prev = s["seq"]
     c["test_runs"] += sum(1 for r in rs if r.get("kind") == "test_run")
+    c["test_runs_piped"] += sum(1 for r in rs if r.get("kind") == "test_run" and r.get("piped"))
+    c["piped_exit0_but_failed"] += sum(1 for r in rs if r.get("kind") == "test_run" and r.get("piped")
+                                       and r.get("exit_code") == 0 and (r.get("failed") or 0) > 0)
     c["unparsed_runs"] += sum(1 for r in rs if r.get("kind") == "test_run" and r.get("collected") is None)
     c["bash_code_edits"] += sum(1 for r in rs if r.get("via") == "bash" and r.get("code") and not r.get("is_test"))
     c["tool_code_edits"] += sum(1 for r in rs if r.get("via") == "tool" and r.get("code") and not r.get("is_test"))
