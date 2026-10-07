@@ -6,6 +6,12 @@
 - Warn condition: a code edit since the previous Stop, instead of in this turn (DECISIONS.md D1). Work by a background subagent that comes back as a new prompt now counts.
 - Parser: pytest `-q` summary without the `====` banner, pytest "Interrupted: N errors during collection", and node:test summaries echoed onto one line.
 - Checked offline against the observe week's real commands with `analysis/observe_week.py --v02` (22 sessions, 96 claims). Shell writes into code files: 136, plus 31 patches. Tiers moved from A 23 / B 42 / C 14 / D 17 to A 10 / B 27 / C 43 / D 16. Would-warn cases in warn mode went from 3 to 15. Whether those 15 are fair still needs a manual check.
+## 0.1.3 (2026-10-07, report only)
+
+- `/proof-of-green:report` shows the session you run it in (via `${CLAUDE_SESSION_ID}`). Before, it showed whichever session file was written last, often another session.
+- If the current session has no record, the report says so and how to fix it: the session most likely started before the plugin was installed or updated, so restart it with `claude --resume <id>`.
+- The report reads every proof-of-green data folder. Desktop-app sessions write to `proof-of-green-inline` and terminal sessions to `proof-of-green-proof-of-green`, so `--all` now covers both.
+- Data collection is unchanged.
 
 ## 0.1.2 (2026-10-05, completes the 0.1.1 parser fix)
 
