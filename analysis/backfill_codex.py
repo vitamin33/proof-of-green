@@ -76,8 +76,9 @@ def replay(path, stats):
         elif t == "task_complete":
             seq[0] += 1
             msg = p.get("last_agent_message")
-            stops.append({"seq": seq[0], "turn": turn[0], "ts": ts,
-                          "claims": claims.extract(msg) if isinstance(msg, str) else []})
+            stops.append(dict({"seq": seq[0], "turn": turn[0], "ts": ts,
+                               "claims": claims.extract(msg) if isinstance(msg, str) else []},
+                              **({"message": msg} if backfill.KEEP_DETAIL else {})))
         elif t == "custom_tool_call" and p.get("name") == "exec":
             calls[p.get("call_id")] = p.get("input") or ""
         elif t == "custom_tool_call_output" and p.get("call_id") in calls:
@@ -85,7 +86,8 @@ def replay(path, stats):
             project = meta.get("project")
             for f in patch_files(code):
                 _, is_test, is_code = hooks.classify(f, project)
-                add({"kind": "edit", "via": "tool", "is_test": is_test, "code": is_code}, ts)
+                add(dict({"kind": "edit", "via": "tool", "is_test": is_test, "code": is_code},
+                         **({"path": f} if backfill.KEEP_DETAIL else {})), ts)
                 stats["apply_patch files"] += 1
             cmds = commands_in(code)
             res = results_in(p.get("output"))
@@ -126,7 +128,8 @@ def replay(path, stats):
                     if patch:
                         add({"kind": "edit", "via": "bash", "is_test": False, "code": True}, ts)
                     if rec is not None:
-                        rec.pop("command", None)
+                        if not backfill.KEEP_DETAIL:
+                            rec.pop("command", None)
                         add(rec, ts)
                     continue
                 if "exit_code" not in r:
@@ -138,7 +141,8 @@ def replay(path, stats):
                                "hook_event_name": "PostToolUseFailure" if code_ else "PostToolUse",
                                "tool_response": {"stdout": r.get("output") or "", "exit_code": code_}}
                 rec = bashparse.parse_bash(payload)
-                rec.pop("command", None)
+                if not backfill.KEEP_DETAIL:
+                    rec.pop("command", None)
                 if rec["kind"] == "test_run":
                     rec["piped"] = bool(backfill.PIPE_MASK.search(cmd)) and "pipefail" not in cmd
                 edits = []
@@ -162,15 +166,8 @@ def replay(path, stats):
     return recs, stops, meta
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--since", default="2026-09-01")
-    ap.add_argument("--json", help="also write the aggregates (numbers only) to this file")
-    args = ap.parse_args()
-    since = datetime.datetime.strptime(args.since, "%Y-%m-%d").timestamp()
-    stats, skipped = collections.Counter(), collections.Counter()
-    groups = collections.defaultdict(collections.Counter)
-    projects = collections.defaultdict(collections.Counter)
+def roots(since, stats, skipped):
+    """Yield (root thread id, records, stops, meta) with subagent threads merged into their root."""
     threads = {}
     for base in CODEX:
         for f in sorted(glob.glob(os.path.join(base, "**", "*.jsonl"), recursive=True)):
@@ -222,15 +219,27 @@ def main():
         for n, (kind, x) in enumerate(items, 1):
             x["seq"] = n
             (stops2 if kind == "s" else recs).append(x)
-        recs_, stops_ = recs, stops2
+        yield root, recs, stops2, m["meta"]
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--since", default="2026-09-01")
+    ap.add_argument("--json", help="also write the aggregates (numbers only) to this file")
+    args = ap.parse_args()
+    since = datetime.datetime.strptime(args.since, "%Y-%m-%d").timestamp()
+    stats, skipped = collections.Counter(), collections.Counter()
+    groups = collections.defaultdict(collections.Counter)
+    projects = collections.defaultdict(collections.Counter)
+    for root, recs_, stops_, meta in roots(since, stats, skipped):
         if not recs_ and not any(s_["claims"] for s_ in stops_):
             skipped["no tool use and no claims"] += 1
             continue
         for rule in ("v0.1", "v0.2"):
             groups[rule]["sessions"] += 1
             backfill.grade(recs_, stops_, rule, groups[rule])
-        backfill.grade(recs_, stops_, "v0.2", projects[m["meta"]["project6"]])
-        projects[m["meta"]["project6"]]["sessions"] += 1
+        backfill.grade(recs_, stops_, "v0.2", projects[meta["project6"]])
+        projects[meta["project6"]]["sessions"] += 1
     print("skipped rollouts:", dict(skipped))
     print("\nparsing coverage")
     for k in sorted(stats):

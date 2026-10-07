@@ -34,6 +34,7 @@ INSTALL = datetime.datetime(2026, 10, 2, 17, 29, tzinfo=datetime.timezone.utc).t
 EXCLUDE_PROJECTS = {"8499de"}  # the plugin's own repo
 EXCLUDE_CWD = ("/private/tmp/", "/tmp/", os.path.expanduser("~/.cache/"))  # scratch fixtures and test runs
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit"}
+KEEP_DETAIL = False  # review_sample.py turns this on to build a local review file; aggregates never use it
 PIPE_MASK = __import__("re").compile(r"\|\s*(?:tail|head|grep|sed|awk|cut|wc|tee)\b")  # exit code becomes the last command's
 
 
@@ -134,7 +135,8 @@ def replay(sid, files):
                     path = tin.get("file_path") or ""
                     if path:
                         rel, is_test, code = hooks.classify(path, project)
-                        add({"kind": "edit", "via": "tool", "is_test": is_test, "code": code}, ts)
+                        add(dict({"kind": "edit", "via": "tool", "is_test": is_test, "code": code},
+                                 **({"path": rel} if KEEP_DETAIL else {})), ts)
                 elif name == "Bash":
                     cmd = tin.get("command") or ""
                     tur = e.get("toolUseResult")
@@ -145,7 +147,8 @@ def replay(sid, files):
                     else:
                         payload["tool_response"] = tur if isinstance(tur, dict) else result_text(b, e)
                     rec = bashparse.parse_bash(payload)
-                    rec.pop("command", None)  # nothing from the command is kept
+                    if not KEEP_DETAIL:
+                        rec.pop("command", None)  # nothing from the command is kept
                     if rec["kind"] == "test_run":
                         rec["piped"] = bool(PIPE_MASK.search(cmd)) and "pipefail" not in cmd
                     edits = []
@@ -166,7 +169,10 @@ def replay(sid, files):
                     for r in ([rec] + edits if after else edits + [rec]):
                         add(r, ts)
     for st in stops:
-        st["claims"] = claims.extract("\n".join(st.pop("texts")))
+        msg = "\n".join(st.pop("texts"))
+        st["claims"] = claims.extract(msg)
+        if KEEP_DETAIL:
+            st["message"] = msg
     return recs, stops, meta
 
 
