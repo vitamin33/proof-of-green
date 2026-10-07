@@ -12,7 +12,8 @@ def data_dirs(explicit=None):
     if explicit and not explicit.startswith("${"):
         return [explicit]
     dirs = ([ledger.data_dir()] if ledger.data_dir() else []) + \
-        sorted(glob.glob(os.path.expanduser("~/.claude/plugins/data/proof-of-green*")))
+        sorted(glob.glob(os.path.expanduser("~/.claude/plugins/data/proof-of-green*"))) + \
+        sorted(glob.glob(os.path.expanduser("~/.codex/plugins/data/proof-of-green*")))  # Codex installs (v0.2)
     out = []
     for d in dirs:
         if os.path.realpath(d) not in [os.path.realpath(x) for x in out]:

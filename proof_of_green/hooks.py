@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 
-from . import bashparse, claims, ledger, tiers
+from . import bashparse, claims, codex, ledger, tiers
 
 TEST_PATH = re.compile(
     r"(?:^|/)(?:tests?|__tests__|spec|Tests)/|(?:^|/)test_[^/]*\.py$|_test\.(?:py|go|dart)$|"
@@ -124,13 +124,19 @@ def _bash_edits(p, command, project):
 
 
 def on_bash(p):
-    test_command = os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND")
-    rec = _agent(p, bashparse.parse_bash(p, test_command))
-    rec["event"] = p.get("hook_event_name") or "PostToolUse"
-    sid = p.get("session_id")
     tin = p.get("tool_input") if isinstance(p.get("tool_input"), dict) else {}
     command = tin.get("command") if isinstance(tin.get("command"), str) else ""
-    edits, first = _bash_edits(p, command, _session_project(sid, p)) if command else ([], None)
+    _record_command(p, p, command)
+
+
+def _record_command(p, payload, command):
+    """Write the test_run / other record for one shell command, plus edits it made (D6), in order."""
+    test_command = os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND")
+    rec = _agent(p, bashparse.parse_bash(payload, test_command))
+    rec["event"] = payload.get("hook_event_name") or p.get("hook_event_name") or "PostToolUse"
+    sid = p.get("session_id")
+    edits, first = _bash_edits(payload, command, _session_project(sid, p)) if command else ([], None)
+    edits = [_agent(p, e) for e in edits]
     order = edits + [rec]
     if edits and rec["kind"] == "test_run":
         _, seg = bashparse.detect_runner(command, test_command)
@@ -139,6 +145,55 @@ def on_bash(p):
             order = [rec] + edits
     for r in order:
         ledger.append(sid, r)
+
+
+def _record_patch(p, patch_text):
+    sid = p.get("session_id")
+    project = _session_project(sid, p)
+    cwd = p.get("cwd") if isinstance(p.get("cwd"), str) else ""
+    for path in codex.patch_text_files(patch_text):
+        full = path if os.path.isabs(path) else os.path.normpath(os.path.join(cwd, path))
+        rel, is_test, code = classify(full, project)
+        ledger.append(sid, _agent(p, {"kind": "edit", "via": "patch", "path": rel, "is_test": is_test, "code": code}))
+
+
+def on_codex_tool(p):
+    """Codex tools (v0.2): exec_command / shell take `cmd` or `command`; apply_patch takes a patch;
+    in code mode one `exec` call runs JavaScript that calls those tools."""
+    name = p.get("tool_name") or ""
+    tin, resp = p.get("tool_input"), p.get("tool_response")
+    text = codex.text_of(tin)
+    if name == "apply_patch" or "*** Begin Patch" in text and name != "exec":
+        _record_patch(p, text)
+        return
+    if name == "exec":  # code mode
+        for f in codex.patch_files(text):
+            _record_patch(p, "*** Update File: %s\n" % f)
+        cmds, results = codex.commands_in(text), codex.results_in(resp)
+        if len(cmds) == len(results):
+            pairs = list(zip(cmds, results))
+        elif len(cmds) == 1 and codex.raw_text(resp):
+            pairs = [(cmds[0], {"output": codex.raw_text(resp), "exit_code": None})]
+        else:
+            pairs = [(c, None) for c in cmds]
+        for (cmd, workdir), r in pairs:
+            if not cmd:
+                continue
+            payload = {"tool_input": {"command": cmd}, "cwd": workdir or p.get("cwd")}
+            if r is None or r.get("exit_code") is None:
+                # result not readable: the command ran; a test run counts with an unknown outcome
+                payload["tool_response"] = {"stdout": (r or {}).get("output", ""), "exit_code": 0}
+            else:
+                payload["tool_response"] = {"stdout": r.get("output") or "", "exit_code": r["exit_code"]}
+            _record_command(p, payload, cmd)
+        return
+    if isinstance(tin, dict) and isinstance(tin.get("cmd") or tin.get("command"), (str, list)):
+        cmd = tin.get("cmd") or tin.get("command")
+        if isinstance(cmd, list):  # ["bash", "-lc", "pytest -q"] -> the script; otherwise argv joined
+            cmd = cmd[2] if len(cmd) >= 3 and os.path.basename(str(cmd[0])) in ("bash", "sh", "zsh") \
+                and cmd[1] in ("-c", "-lc") else " ".join(map(str, cmd))
+        payload = dict(p, tool_input={"command": cmd}, cwd=tin.get("workdir") or p.get("cwd"))
+        _record_command(p, payload, cmd)
 
 
 def on_stop(p):
@@ -171,7 +226,8 @@ def on_stop(p):
 
 
 HANDLERS = {"SessionStart": on_session_start, "UserPromptSubmit": on_user_prompt,
-            "PostToolUse:edit": on_edit, "PostToolUse:bash": on_bash, "Stop": on_stop}
+            "PostToolUse:edit": on_edit, "PostToolUse:bash": on_bash, "PostToolUse:codex": on_codex_tool,
+            "Stop": on_stop}
 
 
 def run(name, stdin=None, stdout=None):

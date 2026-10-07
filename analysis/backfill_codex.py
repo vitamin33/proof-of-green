@@ -25,97 +25,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "analysis"))
 from proof_of_green import bashparse, claims, hooks, ledger  # noqa: E402
+from proof_of_green.codex import commands_in, patch_files, results_in  # noqa: E402,F401
 import backfill  # noqa: E402
 
 CODEX = [os.path.expanduser("~/.codex/sessions"), os.path.expanduser("~/.codex/archived_sessions")]
 EXCLUDE_CWD = ("/private/tmp/", "/tmp/", os.path.expanduser("~/.cache/"))
 EXCLUDE_NAMES = {"fx4", "fx6", "fx7", "fx8", "scratchpad"}
-
-
-def js_string(src, i):
-    """Read a JS string literal starting at src[i] (one of ' " `). Returns (value, end) or (None, i)."""
-    if i >= len(src) or src[i] not in "'\"`":
-        return None, i
-    q, j, out = src[i], i + 1, []
-    while j < len(src):
-        ch = src[j]
-        if ch == "\\" and j + 1 < len(src):
-            nxt = src[j + 1]
-            out.append({"n": "\n", "t": "\t", "r": "\r", "0": "\0"}.get(nxt, nxt))
-            j += 2
-            continue
-        if ch == q:
-            return "".join(out), j + 1
-        out.append(ch)
-        j += 1
-    return None, i
-
-
-def strings_in(src):
-    """All string literals in a JS fragment, in order."""
-    out, i = [], 0
-    while i < len(src):
-        if src[i] in "'\"`":
-            s, j = js_string(src, i)
-            if s is not None:
-                out.append(s)
-                i = j
-                continue
-        i += 1
-    return out
-
-
-def commands_in(code):
-    """[(cmd, workdir)] for every exec_command in the code, in source order.
-    Handles cmd:"..." and the loop form: for (const cmd of ["a", "b"]) ... exec_command({cmd, ...})."""
-    out = []
-    loops = [(m.start(), m.group(1), strings_in(code[m.end():m.end() + code[m.end():].find("]")]))
-             for m in re.finditer(r"for\s*\(\s*(?:const|let|var)\s+(\w+)\s+of\s*\[", code)]
-    for m in re.finditer(r"exec_command\s*\(\s*\{", code):
-        start = m.end()
-        body_end = code.find("})", start)
-        body = code[start:body_end if body_end > 0 else start + 2000]
-        wd = re.search(r"[\"']?workdir[\"']?\s*:\s*", body)
-        workdir = js_string(body, wd.end())[0] if wd else None
-        c = re.search(r"[\"']?cmd[\"']?\s*:\s*", body)
-        if c:
-            val, _ = js_string(body, c.end())
-            out.append((val, workdir) if val is not None else (None, workdir))
-            continue
-        if re.match(r"\s*cmd\s*[,}]", body):
-            loop = [lp for lp in loops if lp[0] < m.start() and lp[1] == "cmd"]
-            if loop:
-                out.extend((s, workdir) for s in loop[-1][2])
-                continue
-        out.append((None, workdir))
-    return out
-
-
-def patch_files(code):
-    """Files touched by apply_patch calls in the code."""
-    files = []
-    for m in re.finditer(r"apply_patch\s*\(\s*", code):
-        text, _ = js_string(code, m.end())
-        if text:
-            files += re.findall(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", text, re.M)
-            files += re.findall(r"^\*\*\* Move to: (.+)$", text, re.M)
-    return [f.strip() for f in files]
-
-
-def results_in(output):
-    """Command results from an exec output list, in order: dicts with exit_code / output."""
-    out = []
-    for item in output[1:] if isinstance(output, list) else []:
-        t = item.get("text", "") if isinstance(item, dict) else ""
-        try:
-            j = json.loads(t)
-        except ValueError:
-            continue
-        if isinstance(j, dict) and isinstance(j.get("value"), dict):
-            j = j["value"]  # Promise.allSettled
-        if isinstance(j, dict) and "output" in j and ("exit_code" in j or "session_id" in j):
-            out.append(j)
-    return out
 
 
 def ts_of(e):
@@ -143,6 +58,9 @@ def replay(path, stats):
         p = e.get("payload") or {}
         ts = ts_of(e) or 0
         if e.get("type") == "session_meta" and meta["cwd"] is None:
+            meta["id"] = p.get("id") or p.get("session_id")  # thread id; session_id is shared by a thread family
+            meta["parent"] = p.get("parent_thread_id")
+            meta["subagent"] = p.get("source") == "subagent" or bool(p.get("parent_thread_id"))
             meta["cwd"] = p.get("cwd")
             meta["project"] = ledger.project_hash(p["cwd"]) if p.get("cwd") else None
             meta["first"] = ts
@@ -253,6 +171,7 @@ def main():
     stats, skipped = collections.Counter(), collections.Counter()
     groups = collections.defaultdict(collections.Counter)
     projects = collections.defaultdict(collections.Counter)
+    threads = {}
     for base in CODEX:
         for f in sorted(glob.glob(os.path.join(base, "**", "*.jsonl"), recursive=True)):
             if os.path.getmtime(f) < since:
@@ -264,14 +183,54 @@ def main():
                     or meta["project6"] in backfill.EXCLUDE_PROJECTS:
                 skipped["scratch, test or builder"] += 1
                 continue
-            if not recs and not any(s["claims"] for s in stops):
-                skipped["no tool use and no claims"] += 1
-                continue
-            for rule in ("v0.1", "v0.2"):
-                groups[rule]["sessions"] += 1
-                backfill.grade(recs, stops, rule, groups[rule])
-            backfill.grade(recs, stops, "v0.2", projects[meta["project6"]])
-            projects[meta["project6"]]["sessions"] += 1
+            threads[meta.get("id") or f] = (recs, stops, meta)
+    # subagent threads report to their parent agent, not to you: their edits and test runs join
+    # the root thread's timeline (as Claude subagents do), their final messages are not claims
+    def root_of(tid, seen=()):
+        meta = threads[tid][2]
+        parent = meta.get("parent")
+        if meta.get("subagent") and parent in threads and parent not in seen:
+            return root_of(parent, seen + (tid,))
+        return tid
+    merged = {}
+    for tid, (recs, stops, meta) in threads.items():
+        root = root_of(tid)
+        if threads[root][2].get("subagent"):
+            skipped["subagent thread whose parent is not on disk"] += 1
+            continue
+        m = merged.setdefault(root, {"own": [], "sub": [], "stops": [], "meta": threads[root][2]})
+        if tid == root:
+            m["own"] += recs
+            m["stops"] += stops
+        else:
+            m["sub"] += recs
+            stats["subagent threads merged into a root thread"] += 1
+    for root, m in merged.items():
+        # the root's turn at any moment = turn of its latest own record or stop at that time
+        marks = sorted([(r["ts"], r["turn"]) for r in m["own"]] + [(x["ts"], x["turn"]) for x in m["stops"]])
+        def turn_at(ts):
+            t = 0
+            for mts, mturn in marks:
+                if mts > ts:
+                    break
+                t = mturn
+            return t
+        items = [("r", dict(r)) for r in m["own"]] + [("r", dict(r, turn=turn_at(r["ts"]))) for r in m["sub"]] + \
+                [("s", dict(x)) for x in m["stops"]]
+        items.sort(key=lambda kx: (kx[1]["ts"], kx[0] == "s"))
+        recs, stops2 = [], []
+        for n, (kind, x) in enumerate(items, 1):
+            x["seq"] = n
+            (stops2 if kind == "s" else recs).append(x)
+        recs_, stops_ = recs, stops2
+        if not recs_ and not any(s_["claims"] for s_ in stops_):
+            skipped["no tool use and no claims"] += 1
+            continue
+        for rule in ("v0.1", "v0.2"):
+            groups[rule]["sessions"] += 1
+            backfill.grade(recs_, stops_, rule, groups[rule])
+        backfill.grade(recs_, stops_, "v0.2", projects[m["meta"]["project6"]])
+        projects[m["meta"]["project6"]]["sessions"] += 1
     print("skipped rollouts:", dict(skipped))
     print("\nparsing coverage")
     for k in sorted(stats):

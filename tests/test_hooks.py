@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import os
 import subprocess
 import sys
@@ -153,15 +154,18 @@ def test_is_test_path(path, is_test):
 
 
 def test_hooks_json_shape():
+    """Shell form, one string per hook: Codex ignores an `args` list (it runs only `command`)."""
     with open(os.path.join(ROOT, "hooks", "hooks.json")) as fh:
         cfg = json.load(fh)["hooks"]
     assert set(cfg) == {"SessionStart", "UserPromptSubmit", "PostToolUse", "PostToolUseFailure", "Stop"}
     for groups in cfg.values():
         for group in groups:
             for hook in group["hooks"]:
-                assert hook["command"] == "python3"
-                assert hook["args"][0].startswith("${CLAUDE_PLUGIN_ROOT}/scripts/")
-                assert os.path.exists(hook["args"][0].replace("${CLAUDE_PLUGIN_ROOT}", ROOT))
+                assert "args" not in hook
+                m = re.match(r'^python3 "\$\{CLAUDE_PLUGIN_ROOT\}/(scripts/\w+\.py)"$', hook["command"])
+                assert m and os.path.exists(os.path.join(ROOT, m.group(1)))
+    matchers = [g.get("matcher") for g in cfg["PostToolUse"]]
+    assert matchers == ["Edit|Write|MultiEdit", "Bash", "apply_patch|exec_command|shell|local_shell|unified_exec|exec"]
 
 
 def test_repo_rules():

@@ -87,7 +87,9 @@ def replay(sid, files):
     entries.sort(key=lambda x: x[0])
     main = [e for _, side, e in entries if not side]
     cwd = next((e.get("cwd") for e in main if e.get("cwd")), None)
-    meta = {"cwd": cwd, "project": ledger.project_hash(cwd)[:6] if cwd else "------",
+    entrypoint = next((e.get("entrypoint") for e in main if e.get("entrypoint")), None)
+    meta = {"cwd": cwd, "project": ledger.project_hash(cwd)[:6] if cwd else "------", "entrypoint": entrypoint,
+            "automation": entrypoint == "sdk-cli" or (cwd or "").startswith("/private/var/folders/"),
             "first": entries[0][0] if entries else None, "last": entries[-1][0] if entries else None}
     project = ledger.project_hash(cwd) if cwd else None
     recs, stops, pending = [], [], {}
@@ -248,27 +250,34 @@ def main():
         if not stops and not recs:
             skipped["empty"] += 1
             continue
-        period = "before install" if (meta["last"] or 0) < INSTALL else \
-            ("after install, recorded by plugin" if sid in recorded else "after install, NOT recorded by plugin")
+        if meta["automation"]:
+            period = "automation (SDK runs, temp review workspaces)"
+        else:
+            period = "before install" if (meta["last"] or 0) < INSTALL else \
+                ("after install, recorded by plugin" if sid in recorded else "after install, NOT recorded by plugin")
         for rule in ("v0.1", "v0.2"):
             c = groups[(period, rule)]
             c["sessions"] += 1
             grade(recs, stops, rule, c)
-            grade(recs, stops, rule, groups[("all", rule)])
-            if rule == "v0.2":
-                grade(recs, stops, rule, projects[meta["project"]])
-        groups[("all", "v0.1")]["sessions"] += 1
-        groups[("all", "v0.2")]["sessions"] += 1
-        projects[meta["project"]]["sessions"] += 1
+            if not meta["automation"]:
+                grade(recs, stops, rule, groups[("all", rule)])
+                if rule == "v0.2":
+                    grade(recs, stops, rule, projects[meta["project"]])
+        if not meta["automation"]:
+            groups[("all", "v0.1")]["sessions"] += 1
+            groups[("all", "v0.2")]["sessions"] += 1
+            projects[meta["project"]]["sessions"] += 1
 
     print("skipped transcripts:", dict(skipped))
+    print("'all' = your interactive sessions (terminal and desktop); automation is listed separately")
     keys = [("sessions", "sessions"), ("turns", "turns"), ("turns with a code edit", "edit_turns"),
             ("  code edits via Edit/Write", "tool_code_edits"), ("  code edits via shell", "bash_code_edits"),
             ("test runs", "test_runs"), ("  unparsed", "unparsed_runs"), ("claims", "claims"),
             ("  tier A", "tier_A"), ("  tier B", "tier_B"), ("  tier C", "tier_C"), ("  tier D", "tier_D"),
             ("claims in edit turns", "edit_claims"), ("  C or D", None), ("would warn (warn mode)", "would_warn"),
             ("  next test run then failed", "confirmed_false_green")]
-    for period in ("all", "before install", "after install, recorded by plugin", "after install, NOT recorded by plugin"):
+    for period in ("all", "before install", "after install, recorded by plugin", "after install, NOT recorded by plugin",
+                   "automation (SDK runs, temp review workspaces)"):
         a, b = groups[(period, "v0.1")], groups[(period, "v0.2")]
         if not a["sessions"]:
             continue
