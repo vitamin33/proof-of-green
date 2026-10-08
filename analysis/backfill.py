@@ -106,6 +106,10 @@ def replay(sid, files):
         content = (e.get("message") or {}).get("content")
         if not side and (is_prompt(e) or e.get("type") == "attachment"):
             turn[0] += 1  # your prompt, or a message you queued while Claude was working
+            if KEEP_DETAIL:
+                c = content if isinstance(content, str) else " ".join(
+                    x.get("text", "") for x in content or [] if isinstance(x, dict))
+                meta.setdefault("prompts", []).append((ts, c or str((e.get("attachment") or {}).get("prompt") or "")))
             continue
         if e.get("type") == "assistant" and not side:
             m = e.get("message") or {}

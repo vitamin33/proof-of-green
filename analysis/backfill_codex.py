@@ -71,6 +71,8 @@ def replay(path, stats):
             continue  # a fork starts with a copy of the parent's history; the parent is counted on its own
         meta["last"] = ts
         t = p.get("type")
+        if t == "user_message" and backfill.KEEP_DETAIL:
+            meta.setdefault("prompts", []).append((ts, str(p.get("message") or "")))
         if t == "task_started":
             turn[0] += 1
         elif t == "task_complete":
