@@ -25,7 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "analysis"))
 from proof_of_green import bashparse, claims, hooks, ledger  # noqa: E402
-from proof_of_green.codex import commands_in, patch_files, results_in  # noqa: E402,F401
+from proof_of_green.codex import exec_events  # noqa: E402
 import backfill  # noqa: E402
 
 CODEX = [os.path.expanduser("~/.codex/sessions"), os.path.expanduser("~/.codex/archived_sessions")]
@@ -41,7 +41,7 @@ def ts_of(e):
 
 
 def replay(path, stats):
-    recs, stops, calls = [], [], {}
+    recs, stops, calls, pending = [], [], {}, {}
     seq, turn = [0], [0]
     meta = {"cwd": None}
 
@@ -84,67 +84,57 @@ def replay(path, stats):
         elif t == "custom_tool_call_output" and p.get("call_id") in calls:
             code = calls.pop(p["call_id"])
             project = meta.get("project")
-            for f in patch_files(code):
-                _, is_test, is_code = hooks.classify(f, project)
-                add(dict({"kind": "edit", "via": "tool", "is_test": is_test, "code": is_code},
-                         **({"path": f} if backfill.KEEP_DETAIL else {})), ts)
-                stats["apply_patch files"] += 1
-            cmds = commands_in(code)
-            res = results_in(p.get("output"))
-            out = p.get("output") if isinstance(p.get("output"), list) else []
-            raw = "\n".join(x.get("text", "") for x in out[1:] if isinstance(x, dict))
-            stats["exec_command calls"] += len(cmds)
-            if len(cmds) == len(res):
-                pairs = list(zip(cmds, res))
-                stats["commands paired with a JSON result"] += len(cmds)
-            elif len(cmds) == 1 and not res and raw:
-                pairs = [(cmds[0], {"output": raw, "exit_code": None})]
-                stats["command with raw text result (exit code unknown)"] += 1
-            else:
-                pairs = [(c, None) for c in cmds]
-                stats["commands without a usable result (runs skipped, edits kept)"] += len(cmds)
-            for (cmd, workdir), r in pairs:
+            for ev in exec_events(code, p.get("output")):
+                if ev[0] == "patch":
+                    _, is_test, is_code = hooks.classify(ev[1], project)
+                    add(dict({"kind": "edit", "via": "tool", "is_test": is_test, "code": is_code},
+                             **({"path": ev[1]} if backfill.KEEP_DETAIL else {})), ts)
+                    stats["apply_patch files"] += 1
+                    continue
+                if ev[0] == "finish":
+                    start = pending.pop(ev[1], None)
+                    if start is None:
+                        continue
+                    res = ev[2]
+                    passed, failed, collected = bashparse.parse_counts(res["output"])
+                    rec = {k: start[k] for k in ("command", "runner", "scope", "flags", "exit_masked", "piped")
+                           if k in start}
+                    rec.update(kind="test_run", exit_code=res["exit_code"], passed=passed, failed=failed,
+                               collected=collected, started_seq=start["seq"])
+                    add(rec, ts)
+                    stats["test runs finished in a later poll (write_stdin)"] += 1
+                    continue
+                _, cmd, workdir, res = ev
+                stats["exec_command calls"] += 1
                 if cmd is None:
                     stats["command not readable (variable)"] += 1
                     continue
                 here = workdir or meta["cwd"] or ""
-                if r is None or (r.get("exit_code") is None and "session_id" not in r):
-                    # result unknown or raw text: keep edits; keep a test run only if its output shows counts
-                    rec = None
-                    if bashparse.detect_runner(cmd)[0]:
-                        # the test command ran; its result is unknown unless the raw text shows counts
-                        rec = bashparse.parse_bash({"tool_input": {"command": cmd}, "cwd": here,
-                                                    "tool_response": {"stdout": r["output"] if r else "", "exit_code": 0}})
-                        if rec.get("failed"):
-                            rec["exit_code"] = 1
-                        stats["test runs with unknown exit code (B at most)"] += 1
-                    writes, patch, _ = bashparse.write_targets(cmd)
-                    for wpath, cd in writes:
-                        full = os.path.expanduser(wpath)
-                        if not os.path.isabs(full):
-                            full = os.path.normpath(os.path.join(here, os.path.expanduser(cd), full))
-                        _, is_test, is_code = hooks.classify(full, project)
-                        add({"kind": "edit", "via": "bash", "is_test": is_test, "code": is_code}, ts)
-                    if patch:
-                        add({"kind": "edit", "via": "bash", "is_test": False, "code": True}, ts)
-                    if rec is not None:
-                        if not backfill.KEEP_DETAIL:
-                            rec.pop("command", None)
-                        add(rec, ts)
-                    continue
-                if "exit_code" not in r:
-                    stats["still running at result (write_stdin)"] += 1
-                    payload = {"tool_input": {"command": cmd, "run_in_background": True}, "cwd": here}
+                if res is None:
+                    stats["commands without a usable result (outcome unknown)"] += 1
+                elif res["process"] is not None:
+                    stats["still running when the call returned"] += 1
+                elif res["exit_code"] is None:
+                    stats["command with raw text result (exit code unknown)"] += 1
                 else:
-                    code_ = r.get("exit_code")
-                    payload = {"tool_input": {"command": cmd}, "cwd": here,
-                               "hook_event_name": "PostToolUseFailure" if code_ else "PostToolUse",
-                               "tool_response": {"stdout": r.get("output") or "", "exit_code": code_}}
+                    stats["commands paired with a JSON result"] += 1
+                known = res is not None and res["exit_code"] is not None
+                payload = {"tool_input": {"command": cmd}, "cwd": here,
+                           "hook_event_name": "PostToolUseFailure" if known and res["exit_code"] else "PostToolUse",
+                           # unknown outcome: the command ran; a test run counts as passing unless its counts say not
+                           "tool_response": {"stdout": (res or {}).get("output") or "",
+                                             "exit_code": res["exit_code"] if known else 0}}
                 rec = bashparse.parse_bash(payload)
-                if not backfill.KEEP_DETAIL:
-                    rec.pop("command", None)
                 if rec["kind"] == "test_run":
                     rec["piped"] = bool(backfill.PIPE_MASK.search(cmd)) and "pipefail" not in cmd
+                    if res is not None and res["process"] is not None:
+                        rec.update(pending=True, exit_code=None)
+                    elif not known:
+                        stats["test runs with unknown exit code (B at most)"] += 1
+                        if rec.get("failed"):
+                            rec["exit_code"] = 1
+                if not backfill.KEEP_DETAIL:
+                    rec.pop("command", None)
                 edits = []
                 writes, patch, first = bashparse.write_targets(cmd)
                 for wpath, cd in writes:
@@ -162,6 +152,8 @@ def replay(path, stats):
                     after = 0 <= at < (first or 0)
                 for r2 in ([rec] + edits if after else edits + [rec]):
                     add(r2, ts)
+                if rec.get("pending"):
+                    pending[res["process"]] = rec
     meta["project6"] = (meta.get("project") or "------")[:6]
     return recs, stops, meta
 

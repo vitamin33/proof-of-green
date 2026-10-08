@@ -65,3 +65,68 @@ def test_unknown_codex_tool_is_ignored(session):
     fire(session, "exec", {"input": "text(await tools.web__run({q: 'x'}))"},
          [{"type": "input_text", "text": "Script completed"}])
     assert kinds(session) == []
+
+
+def running(proc):
+    return {"type": "input_text", "text": json.dumps({"chunk_id": "a", "session_id": proc, "output": "",
+                                                       "original_token_count": 0, "wall_time_seconds": 1.0})}
+
+
+def exited(code, output):
+    return {"type": "input_text", "text": json.dumps({"chunk_id": "b", "exit_code": code, "output": output,
+                                                       "original_token_count": 9, "wall_time_seconds": 0.1})}
+
+
+DONE = {"type": "input_text", "text": "Script completed"}
+
+
+def test_cmd_containing_close_brace_is_read_whole(session):
+    """A heredoc with JS in it holds "})": the command must not be cut there."""
+    session.prompt()
+    session.edit()
+    cmd = "python3 - <<'PY'\nx = '(()=>{a})()'\nPY\npytest -q"
+    code = "text(await tools.exec_command({cmd:" + json.dumps(cmd) + ", workdir:\"/repo\"}))"
+    fire(session, "exec", {"input": code}, [DONE, exited(0, PASS4)])
+    assert [k for k, *_ in kinds(session)][-1] == "test_run"
+
+
+def test_run_finishing_in_a_later_poll_counts(session):
+    """Codex: the test command was still running when exec returned; write_stdin later gets the result."""
+    session.prompt()
+    session.edit()
+    fire(session, "exec", {"input": "text(await tools.exec_command({cmd:\"pytest -q\",yield_time_ms:1000}))"},
+         [DONE, running(25917)])
+    fire(session, "exec", {"input": "text(await tools.write_stdin({session_id:25917,chars:\"\"}))"},
+         [DONE, exited(0, PASS4)])
+    session.stop("All tests pass.")
+    assert session.verdicts()[-1]["claims"][0]["tier"] == "A"
+
+
+def test_run_finishing_with_failure_is_d(session):
+    session.prompt()
+    session.edit()
+    fire(session, "exec", {"input": "text(await tools.exec_command({cmd:\"pytest -q\"}))"}, [DONE, running(7)])
+    fire(session, "exec", {"input": "text(await tools.exec_command({cmd:\"ls\"}));"
+                                    "text(await tools.write_stdin({session_id:7,chars:\"\"}))"},
+         [DONE, exited(0, "a b"), exited(1, "1 failed, 3 passed in 0.1s")])
+    session.stop("All tests pass.")
+    assert session.verdicts()[-1]["claims"][0]["tier"] == "D"
+
+
+def test_still_running_at_stop_is_b_not_d(session):
+    session.prompt()
+    session.edit()
+    fire(session, "exec", {"input": "text(await tools.exec_command({cmd:\"pytest -q\"}))"}, [DONE, running(8)])
+    session.stop("Fixed it.")
+    v = session.verdicts()[-1]["claims"][0]
+    assert v["tier"] == "B"
+
+
+def test_edit_while_run_was_going_makes_it_stale(session):
+    """The run started before the last edit, so it says nothing about that edit, even if it finished after."""
+    session.prompt()
+    fire(session, "exec", {"input": "text(await tools.exec_command({cmd:\"pytest -q\"}))"}, [DONE, running(9)])
+    session.edit()
+    fire(session, "write_stdin", {"session_id": 9, "chars": ""}, {"exit_code": 0, "output": PASS4})
+    session.stop("All tests pass.")
+    assert session.verdicts()[-1]["claims"][0]["tier"] == "C"

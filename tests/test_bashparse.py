@@ -63,7 +63,34 @@ RUNNERS = [
     ("node --test test/a.test.js", "node --test", "partial"),
     ("node --test --test-reporter spec", "node --test", "all"),
     ("node --test --test-name-pattern login", "node --test", "partial"),
+    # v0.2: missed in the warning-precision review
+    ("PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s ops/tools -q", "unittest", "partial"),
+    ("python3 -B -m unittest", "unittest", "all"),
+    ("python3 -m unittest test_calc", "unittest", "partial"),
+    (".venv/bin/python3 -B -m pytest tests/test_a.py -q", "pytest", "partial"),
+    ("python3 -B ops/tools/test_sources_mutations.py", "python test file", "partial"),
+    ("python3 tools/parser_test.py > log 2>&1", "python test file", "partial"),
+    ("./scripts/node.sh npm test", "npm test", "all"),
+    ("./scripts/node.sh npx vitest run test/api/a.test.ts", "vitest", "partial"),
+    ("npm run verify > out.txt 2>&1", "npm test", "unknown"),
+    ("npm run e2e", "npm test", "unknown"),
+    ("npx playwright test", "playwright", "all"),
+    ("npx playwright test e2e/login.spec.ts", "playwright", "partial"),
 ]
+
+NOT_RUNNERS = [
+    "python3 - <<'PY'\nopen('test_a.py').read()\nPY",
+    "python3 tools/make_test_data.py",
+    "cat tests/test_a.py",
+    "npm run check",
+    "npm run typecheck",
+    "./scripts/build.sh",
+]
+
+
+@pytest.mark.parametrize("command", NOT_RUNNERS)
+def test_not_a_test_run(command):
+    assert bp.detect_runner(command) == (None, None)
 
 
 @pytest.mark.parametrize("command,runner,scope", RUNNERS)
@@ -268,6 +295,14 @@ def test_v02_parser_formats(text, expected):
     ("sed -n 10,20p src/a.ts", [], False),
     ("echo x > README.md", [], False),
     ("npm test 2>&1 | grep -E '^# (pass|fail)'", [], False),
+    # v0.2 review: the word "patch" in text, read-only applies, heredoc bodies are data
+    ("python3 - <<'PY'\np='STATUS.md';s=open(p).read()+'native patch now accepts text'\nopen(p,'w').write(s)\nPY", [], False),
+    ("git commit -m 'fix: patch the parser'", [], False),
+    ("git apply --check fix.diff", [], False),
+    ("git -C repo apply fix.diff && npm test", [], True),
+    ("patch -p1 < fix.diff", [], True),
+    ("cat > $S/dry4.py <<'EOF'\nimport os\nprint(1) if x > 2 else None\nwith open(out, 'w') as f: f.write(a >> b.py)\nEOF", [], False),
+    ("cat > notes.md <<'EOF'\nrun: echo x > src/a.py\nEOF", [], False),
 ])
 def test_write_targets(command, writes, patch):
     got, got_patch, _ = bp.write_targets(command)

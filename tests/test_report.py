@@ -122,3 +122,21 @@ def test_report_counts_masked_runs(data, capsys):
     s.bash("pytest -q", "==== 2 passed in 0.1s ====")
     report.main(["--data", str(data), "--session", "masked1"])
     assert "exit code masked by pipe   1" in capsys.readouterr().out
+
+
+def test_recording_started_mid_turn(data, capsys, monkeypatch):
+    """Codex can start the hooks in the middle of a turn: no prompt seen, earlier work missing.
+    The claim is kept but not graded, never warned on, and the report says so."""
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MODE", "warn")
+    s = Session(sid="cccc3333")
+    s.edit()
+    assert s.stop("Fixed. All tests pass.") is None
+    assert s.verdicts()[-1].get("partial") is True
+    assert report.main(["--data", str(data)]) == 0
+    out = capsys.readouterr().out
+    assert "turns with code edits      1 of 1" in out
+    assert "evidence tiers             A 0  B 0  C 0  D 0" in out
+    assert "not graded                 2 claims (recording started mid-turn" in out
+    s.prompt()                                # the next turn is recorded in full
+    s.edit()
+    assert s.stop("Fixed.") is not None

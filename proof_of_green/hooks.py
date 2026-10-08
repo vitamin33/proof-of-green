@@ -129,10 +129,13 @@ def on_bash(p):
     _record_command(p, p, command)
 
 
-def _record_command(p, payload, command):
-    """Write the test_run / other record for one shell command, plus edits it made (D6), in order."""
+def _record_command(p, payload, command, pending=None):
+    """Write the test_run / other record for one shell command, plus edits it made (D6), in order.
+    `pending`: the command was still running when its tool call returned (Codex)."""
     test_command = os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND")
     rec = _agent(p, bashparse.parse_bash(payload, test_command))
+    if pending and rec["kind"] == "test_run":
+        rec.update(pending, pending=True, exit_code=None)
     rec["event"] = payload.get("hook_event_name") or p.get("hook_event_name") or "PostToolUse"
     sid = p.get("session_id")
     edits, first = _bash_edits(payload, command, _session_project(sid, p)) if command else ([], None)
@@ -157,9 +160,43 @@ def _record_patch(p, patch_text):
         ledger.append(sid, _agent(p, {"kind": "edit", "via": "patch", "path": rel, "is_test": is_test, "code": code}))
 
 
+def _codex_result_payload(cmd, workdir, p, res):
+    payload = {"tool_input": {"command": cmd}, "cwd": workdir or p.get("cwd")}
+    if res is None or res["exit_code"] is None:
+        # result not readable or still running: the command ran; a test run counts with an unknown outcome
+        payload["tool_response"] = {"stdout": (res or {}).get("output", ""), "exit_code": 0}
+    else:
+        payload["tool_response"] = {"stdout": res["output"], "exit_code": res["exit_code"]}
+        if res["exit_code"]:
+            payload["hook_event_name"] = "PostToolUseFailure"
+    return payload
+
+
+def _codex_cmd(p, cmd, workdir, res):
+    pending = {"codex_process": res["process"]} if res and res.get("process") is not None else None
+    _record_command(p, _codex_result_payload(cmd, workdir, p, res), cmd, pending)
+
+
+def _codex_finish(p, process, res):
+    """A test run that was still going when its tool call returned has now exited (Codex write_stdin):
+    record its real result, tied to where it started."""
+    sid = p.get("session_id")
+    started = [r for r in ledger.read(ledger.session_path(sid))
+               if r.get("kind") == "test_run" and r.get("codex_process") == process and r.get("pending")]
+    if not started:
+        return
+    first = started[-1]
+    passed, failed, collected = bashparse.parse_counts(res["output"])
+    rec = {k: first[k] for k in ("command", "runner", "scope", "flags", "exit_masked") if k in first}
+    rec.update(kind="test_run", exit_code=res["exit_code"], passed=passed, failed=failed,
+               collected=collected, started_seq=first["seq"], event="write_stdin")
+    ledger.append(sid, _agent(p, rec))
+
+
 def on_codex_tool(p):
     """Codex tools (v0.2): exec_command / shell take `cmd` or `command`; apply_patch takes a patch;
-    in code mode one `exec` call runs JavaScript that calls those tools."""
+    write_stdin polls a command that was still running; in code mode one `exec` call runs
+    JavaScript that calls those tools."""
     name = p.get("tool_name") or ""
     tin, resp = p.get("tool_input"), p.get("tool_response")
     text = codex.text_of(tin)
@@ -167,31 +204,27 @@ def on_codex_tool(p):
         _record_patch(p, text)
         return
     if name == "exec":  # code mode
-        for f in codex.patch_files(text):
-            _record_patch(p, "*** Update File: %s\n" % f)
-        cmds, results = codex.commands_in(text), codex.results_in(resp)
-        if len(cmds) == len(results):
-            pairs = list(zip(cmds, results))
-        elif len(cmds) == 1 and codex.raw_text(resp):
-            pairs = [(cmds[0], {"output": codex.raw_text(resp), "exit_code": None})]
-        else:
-            pairs = [(c, None) for c in cmds]
-        for (cmd, workdir), r in pairs:
-            if not cmd:
-                continue
-            payload = {"tool_input": {"command": cmd}, "cwd": workdir or p.get("cwd")}
-            if r is None or r.get("exit_code") is None:
-                # result not readable: the command ran; a test run counts with an unknown outcome
-                payload["tool_response"] = {"stdout": (r or {}).get("output", ""), "exit_code": 0}
-            else:
-                payload["tool_response"] = {"stdout": r.get("output") or "", "exit_code": r["exit_code"]}
-            _record_command(p, payload, cmd)
+        for ev in codex.exec_events(text, resp):
+            if ev[0] == "patch":
+                _record_patch(p, "*** Update File: %s\n" % ev[1])
+            elif ev[0] == "cmd" and ev[1]:
+                _codex_cmd(p, ev[1], ev[2], ev[3])
+            elif ev[0] == "finish":
+                _codex_finish(p, ev[1], ev[2])
+        return
+    res = codex.single_result(resp)
+    if name == "write_stdin" and isinstance(tin, dict):
+        if isinstance(tin.get("session_id"), int) and res and res["exit_code"] is not None:
+            _codex_finish(p, tin["session_id"], res)
         return
     if isinstance(tin, dict) and isinstance(tin.get("cmd") or tin.get("command"), (str, list)):
         cmd = tin.get("cmd") or tin.get("command")
         if isinstance(cmd, list):  # ["bash", "-lc", "pytest -q"] -> the script; otherwise argv joined
             cmd = cmd[2] if len(cmd) >= 3 and os.path.basename(str(cmd[0])) in ("bash", "sh", "zsh") \
                 and cmd[1] in ("-c", "-lc") else " ".join(map(str, cmd))
+        if res and res.get("process") is not None:
+            _codex_cmd(p, cmd, tin.get("workdir"), res)
+            return
         payload = dict(p, tool_input={"command": cmd}, cwd=tin.get("workdir") or p.get("cwd"))
         _record_command(p, payload, cmd)
 
@@ -214,10 +247,16 @@ def on_stop(p):
     # subagent and came back as a new prompt still counts.
     prev_stop = max([r["seq"] for r in records if r.get("kind") in ("stop", "verdict")] + [0])
     edited_since_stop = any(r["seq"] > prev_stop for r in tiers.code_edits(records))
-    act = (m == "warn" and not p.get("stop_hook_active") and edited_since_stop
+    # No prompt was ever recorded: the hooks came alive in the middle of a turn (Codex starts them
+    # as soon as they are approved), so the turn's earlier edits and test runs are missing.
+    partial = not any(r.get("kind") == "turn" for r in records)
+    act = (m == "warn" and not p.get("stop_hook_active") and edited_since_stop and not partial
            and tiers.warning(graded) is not None)
-    ledger.append(sid, {"kind": "verdict", "mode": m, "acted": act,
-                        "claims": [{"type": c["type"], "scope": c["scope"], "tier": c["tier"]} for c in graded]})
+    verdict = {"kind": "verdict", "mode": m, "acted": act,
+               "claims": [{"type": c["type"], "scope": c["scope"], "tier": c["tier"]} for c in graded]}
+    if partial:
+        verdict["partial"] = True
+    ledger.append(sid, verdict)
     if not act:
         return None
     msg, ctx = tiers.warning(graded)

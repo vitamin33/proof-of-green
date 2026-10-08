@@ -52,11 +52,13 @@ def summarize(sessions):
     """sessions: list of (session_name, records). Returns dict of numbers."""
     s = {"sessions": len(sessions), "turns": 0, "edit_turns": 0, "edit_turns_no_claim": 0,
          "claims": Counter(), "tiers": Counter(), "warnings": 0, "flags": Counter(), "examples": [],
-         "unparsed": Counter(), "projects": Counter(), "masked": 0}
+         "unparsed": Counter(), "projects": Counter(), "masked": 0, "partial": 0}
     for name, records in sessions:
         project = project_of(records)
         s["projects"][project] += 1
-        s["turns"] += ledger.current_turn(records)
+        # turn 0 counts too: records before any prompt was seen (recording started mid-turn)
+        s["turns"] += max(ledger.current_turn(records),
+                          len({r.get("turn") for r in records if r.get("kind") != "session"}))
         edit_turns = {r.get("turn") for r in tiers.code_edits(records)}
         claim_turns = set()
         for r in records:
@@ -69,6 +71,9 @@ def summarize(sessions):
                 continue
             if r.get("acted"):
                 s["warnings"] += 1
+            if r.get("partial"):
+                s["partial"] += len(r.get("claims") or [])
+                continue
             if r.get("claims"):
                 claim_turns.add(r.get("turn"))
             for c in r.get("claims") or []:
@@ -98,6 +103,8 @@ def render(s, label):
         "suspicious test flags      %d (%s)" % (sum(s["flags"].values()), flags),
         "unparsed test runs         %d (%s)" % (sum(s["unparsed"].values()), unparsed),
         "exit code masked by pipe   %d (| tail, | grep without pipefail; judged by counts only)" % s["masked"],
+    ] + (["not graded                 %d claims (recording started mid-turn; earlier work not seen)" % s["partial"]]
+         if s["partial"] else []) + [
         "",
         "stale / unsupported claims (latest 3):",
     ]

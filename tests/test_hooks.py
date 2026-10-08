@@ -165,7 +165,7 @@ def test_hooks_json_shape():
                 m = re.match(r'^python3 "\$\{CLAUDE_PLUGIN_ROOT\}/(scripts/\w+\.py)"$', hook["command"])
                 assert m and os.path.exists(os.path.join(ROOT, m.group(1)))
     matchers = [g.get("matcher") for g in cfg["PostToolUse"]]
-    assert matchers == ["Edit|Write|MultiEdit", "Bash", "apply_patch|exec_command|shell|local_shell|unified_exec|exec"]
+    assert matchers == ["Edit|Write|MultiEdit", "Bash", "apply_patch|exec_command|write_stdin|shell|local_shell|unified_exec|exec"]
 
 
 def test_repo_rules():

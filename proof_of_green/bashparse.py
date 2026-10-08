@@ -7,13 +7,18 @@ import re
 import shlex
 
 # name -> regex matched against one command segment (after prefixes are stripped)
+PY_OPTS = r"(?:-[A-Za-z]+\s+)*"  # python3 -B -u ...
+
 RUNNERS = [
-    ("pytest", r"(?:^|/)py\.?test\b|\bpython[\d.]*\s+-m\s+pytest\b"),
-    ("unittest", r"\bpython[\d.]*\s+-m\s+unittest\b"),
+    ("pytest", r"(?:^|/)py\.?test\b|\bpython[\d.]*\s+" + PY_OPTS + r"-m\s+pytest\b"),
+    ("unittest", r"\bpython[\d.]*\s+" + PY_OPTS + r"-m\s+unittest\b"),
+    # a test file run directly: python3 -B tools/test_x.py (unittest.main() or a self-checking script)
+    ("python test file", r"\bpython[\d.]*\s+" + PY_OPTS + r"(?:\S*/)?(?:test_\w+|\w+_test)\.py(?=\s|$)"),
+    ("playwright", r"(?:^|/)playwright\s+test\b"),
     ("vitest", r"(?:^|/)vitest\b"),
     ("jest", r"(?:^|/)jest\b"),
     ("npm test", r"^(?:npm|pnpm|yarn|bun)\s+(?:-{1,2}[\w-]+(?:[= ](?!(?:run|test|t)\b)[^\s-]\S*)?\s+)*"
-                 r"(?:run\s+)?(?:test|t)(?::[\w:-]+)?(?=\s|$)"),
+                 r"(?:(?:run\s+)?(?:test|t)(?::[\w:-]+)?|run\s+(?:verify|e2e|test-[\w:-]+))(?=\s|$)"),
     ("go test", r"^go\s+test\b"),
     ("cargo test", r"^cargo\s+(?:test|nextest\s+run)\b"),
     ("flutter test", r"^flutter\s+test\b"),
@@ -33,7 +38,10 @@ RUNNERS = [
 PREFIX = re.compile(
     r"^(?:\w+=\S*\s+|sudo\s+|time\s+|timeout\s+\S+\s+|env\s+|exec\s+|"
     r"(?:uv|poetry|pipenv|hatch|pdm|rye)\s+run\s+|bundle\s+exec\s+|"
-    r"npx\s+(?:-y\s+)?|bunx\s+|pnpm\s+(?:exec|dlx)\s+|yarn\s+(?:exec\s+)?(?=jest|vitest))")
+    r"npx\s+(?:-y\s+)?|bunx\s+|pnpm\s+(?:exec|dlx)\s+|yarn\s+(?:exec\s+)?(?=jest|vitest)|"
+    # a project wrapper that pins the toolchain: ./scripts/node.sh npm test
+    r"(?:\.{0,2}/)?(?:[\w.-]+/)*[\w.-]+\.sh\s+(?=(?:npm|pnpm|yarn|bun|npx|bunx|node|python[\d.]*|pytest|"
+    r"vitest|jest|go|cargo|make|playwright)\b))")
 
 DEPLOY = re.compile(
     r"\b(?:vercel\s+(?:deploy|--prod)|netlify\s+deploy|fly(?:ctl)?\s+deploy|"
@@ -134,7 +142,7 @@ def detect_runner(command, test_command=None):
 def detect_scope(runner, seg):
     if runner == "custom":
         return "all"
-    seg = re.sub(r"^python[\d.]*\s+-m\s+", "", seg)
+    seg = re.sub(r"^\S*python[\d.]*\s+" + PY_OPTS + r"-m\s+", "", seg)
     if re.search(NARROW, seg) or "::" in seg:
         return "partial"
     try:
@@ -157,10 +165,13 @@ def detect_scope(runner, seg):
         words.append(tok)
     ignore = {"test", "t", "run", "-m", "pytest", "unittest", "nextest", "exec", "--", "check",
               "verify", "vitest", "jest", "go"}
-    rest = [w for w in words if w not in ignore and not re.match(r"^:?[\w:-]*[tT]est\w*$", w)
+    task_names = runner in ("gradle test", "mvn test", "make test", "xcodebuild test", "fastlane")
+    rest = [w for w in words if w not in ignore and not (task_names and re.match(r"^:?[\w:-]*[tT]est\w*$", w))
             and not re.match(r"^python[\d.]*$", w)]
-    if runner.split()[0] in ("npm", "pnpm", "yarn", "bun") and re.search(r"\btest:[\w:-]+", seg):
-        return "unknown"  # a named sub-suite such as test:unit
+    if runner.split()[0] in ("npm", "pnpm", "yarn", "bun") and re.search(r"\btest:[\w:-]+|\brun\s+(?:verify|e2e|test-)", seg):
+        return "unknown"  # a named sub-suite such as test:unit, or a script that may or may not run tests
+    if runner == "python test file":
+        return "partial"
     if runner == "fastlane":
         return "partial" if re.search(r"only_testing|testplan", seg) else "unknown"
     if runner == "npm test" and " -- " not in " %s " % seg:
@@ -361,7 +372,9 @@ TEE_INTO = re.compile(r"\btee\s+(?:-a\s+)?([\w.~/-]+)")
 IN_PLACE = re.compile(r"\bsed\s+(?:-\S+\s+)*-i\b|\bperl\s+-\w*i")
 SCRIPT_HEREDOC = re.compile(r"\b(?:python3?|node|ruby|perl)\s+-\s*<<")
 SCRIPT_WRITES = re.compile(r"\.write_text\(|\.write_bytes\(|open\([^)]*['\"][wa]\+?['\"]|writeFile")
-APPLIES_PATCH = re.compile(r"\bpatch\s|\bgit\s+apply\b")
+# `patch` or `git apply` as the command itself, not the word in text; --check / --stat only read
+APPLIES_PATCH = re.compile(r"^(?:patch\b(?!.*--dry-run)|git\s+(?:-C\s+\S+\s+)?apply\b(?!.*--(?:check|stat|numstat|summary)\b))")
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n")
 QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 
 
@@ -392,6 +405,22 @@ def script_write_targets(script):
     return out
 
 
+def blank_heredocs(command):
+    """The command with every heredoc body blanked out (same length, so positions still line up):
+    text fed to a program is data, not shell."""
+    out, pos = [], 0
+    for m in HEREDOC.finditer(command):
+        if m.start() < pos:
+            continue
+        end = re.compile(r"^\s*" + re.escape(m.group(2)) + r"\s*$", re.M).search(command, m.end())
+        stop = end.start() if end else len(command)
+        out.append(command[pos:m.end()])
+        out.append(re.sub(r"[^\n]", " ", command[m.end():stop]))
+        pos = stop
+    out.append(command[pos:])
+    return "".join(out)
+
+
 def _code_files(text):
     return [m for m in CODE_FILE.findall(text) if CODE_FILE.fullmatch(m)]
 
@@ -405,10 +434,11 @@ def write_targets(command):
     for writing and names a code file. Reading a file never counts.
     """
     command = command or ""
-    writes, first = [], None
+    shell = blank_heredocs(command)
+    writes, first, patch = [], None, False
     cd, pos = "", 0
-    for seg in re.split(r"(&&|\|\||[;\n|])", command):
-        start = command.find(seg, pos) if seg else pos
+    for seg in re.split(r"(&&|\|\||[;\n|])", shell):
+        start = shell.find(seg, pos) if seg else pos
         pos = start + len(seg)
         s = seg.strip()
         m = re.match(r"^cd\s+(\S+)", s)
@@ -419,6 +449,9 @@ def write_targets(command):
         found += [t for t in TEE_INTO.findall(s) if CODE_FILE.fullmatch(t)]
         if IN_PLACE.search(s):
             found += _code_files(QUOTED.sub(" ", s))
+        if APPLIES_PATCH.match(re.sub(r"^\(?\s*(?:\w+=\S*\s+)*", "", s)):
+            patch = True
+            first = start if first is None else min(first, start)
         for path in found:
             writes.append((path, cd))
             first = start if first is None else first
@@ -430,10 +463,6 @@ def write_targets(command):
             writes.append((path, before[-1].strip("'\"") if before else ""))
         if targets:
             first = at if first is None else min(first, at)
-    patch = bool(APPLIES_PATCH.search(command))
-    if patch:
-        at = APPLIES_PATCH.search(command).start()
-        first = at if first is None else min(first, at)
     seen, unique = set(), []
     for w in writes:
         if w not in seen:

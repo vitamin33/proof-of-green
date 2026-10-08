@@ -57,6 +57,30 @@ Question: should edits under `.claude/worktrees/` count? Counting them is right 
 
 **Decision: keep for v0.** Listed in LATER.md as a known blind spot. Update 2026-10-07: implemented on branch `v0.2` after the interim analysis showed it was the largest source of error. Under the old rule 65 of 95 claims were A/B; counting shell writes into code files, 36 to 37 are.
 
+## D7. Deploys that do not use a deploy CLI (proposal, 2026-10-08)
+
+Seen in the warning review (two samples of 27 would-warn cases each): 5 of the 54 cases claim "deployed" after `gh pr merge` (the merge triggers the deploy) or `docker compose up -d` / `docker compose build` on the host that serves the app. The DEPLOY list only knows platform CLIs (vercel, fly, firebase, kubectl, …), so those claims get "no deploy command in this session".
+
+Proposal: count `docker compose up` (without `--dry-run`), `docker compose build` followed by `up`, and `gh pr merge` as deploy commands. Risk: a merge does not always deploy, and a local `docker compose up` is not production. Alternative: leave `deployed` out of warnings until it can be checked better.
+
+**Decision: open.**
+
+## D8. "verified" and "done" about work that is not code (proposal, 2026-10-08)
+
+Seen in the same review: in about 10 of 54 cases the claim is about something tests cannot show. The agent checked a document, a data analysis, a rendered video, a message draft or a research result, or "done" closes a task list. The turn also touched a code file, so the claim is graded against test runs and the warning is unfair.
+
+Options: (a) warn on `verified` and `done` only when the same reply also names tests, a build or code behaviour; (b) never warn on `verified`, still record it; (c) keep as is and accept the noise. (a) is a claim-pattern change; (b) is simpler.
+
+**Decision: open.**
+
+## D9. One-off scripts are not code edits (proposal, 2026-10-08)
+
+After the parser fixes, the biggest remaining source of unfair warnings is the code-edit side. Of the 20 unfair cases in the second sample, 12 have a "code edit" that is a one-off script or a note, not a change to the product. Examples: `cat > private/jobs/…/verify.py`, `cat > private/maintenance/apply.py`, a scratch file in a temp folder, a handoff note, or an edit that `git checkout --` later reverted. Two plain bugs behind some of them are fixed on `v0.2` (see CHANGELOG): the word "patch" in text, and heredoc bodies read as shell.
+
+Proposal: a file the project's git ignores (`git check-ignore`) is not a code edit. `private/`, `tmp/` and run folders are usually ignored; product code never is. One `git check-ignore` call per edited file, with a short timeout, failing open (treated as code). Reverts stay out of scope.
+
+**Decision: open.**
+
 ## Not a decision, but you asked for it
 
 In the 2.1.287 CLI code, plugin options are set through `/plugin configure <plugin>` (also `/plugin` → plugin → "Configure options"), `claude plugin configure <plugin> --values-stdin` and `claude plugin install … --config KEY=VALUE`. I found no sign of them in `/config`, but I did not open `/config` to check. README and INSTALL.md describe the `/plugin configure` route.
