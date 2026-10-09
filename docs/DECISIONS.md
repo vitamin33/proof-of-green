@@ -63,7 +63,7 @@ Seen in the warning review (two samples of 27 would-warn cases each): 5 of the 5
 
 Proposal: count `docker compose up` (without `--dry-run`), `docker compose build` followed by `up`, and `gh pr merge` as deploy commands. Risk: a merge does not always deploy, and a local `docker compose up` is not production. Alternative: leave `deployed` out of warnings until it can be checked better.
 
-**Decision: open.**
+**Decision (2026-10-09): no change.** `deployed` claims are recorded and shown in the report, never warned on.
 
 ## D8. "verified" and "done" about work that is not code (proposal, 2026-10-08)
 
@@ -71,7 +71,7 @@ Seen in the same review: in about 10 of 54 cases the claim is about something te
 
 Options: (a) warn on `verified` and `done` only when the same reply also names tests, a build or code behaviour; (b) never warn on `verified`, still record it; (c) keep as is and accept the noise. (a) is a claim-pattern change; (b) is simpler.
 
-**Decision: open.**
+**Decision (2026-10-09): option (b).** `verified` and `done` are recorded and shown in the report, never warned on.
 
 ## D9. One-off scripts are not code edits (proposal, 2026-10-08)
 
@@ -79,7 +79,13 @@ After the parser fixes, the biggest remaining source of unfair warnings is the c
 
 Proposal: a file the project's git ignores (`git check-ignore`) is not a code edit. `private/`, `tmp/` and run folders are usually ignored; product code never is. One `git check-ignore` call per edited file, with a short timeout, failing open (treated as code). Reverts stay out of scope.
 
-**Decision: open.**
+**Decision (2026-10-09): not implemented.** The plugin is frozen (see below); one-off scripts still count as code edits in the data, and the report says so.
+
+## D10. Freeze at 0.2.0: observe and report only (2026-10-09)
+
+The history study (`analysis/claim_study.py`, `analysis/hidden_failures.py`, `analysis/baseline_cost.py`) found no real false "tests pass" claim in about 2,070 claims from Claude Code and Codex: every case that looked false on paper was a deliberate red run (mutation check, new test written to fail first, old code), a failure the agent then fixed, or a failure that was already there before the change. Two hand-checked samples of would-warn cases had 2 of 25 and 1 of 21 fair warnings. A warning with that precision breaks the "never annoys" rule.
+
+**Decision:** 0.2.0 ships with the v0.2 parser and Codex fixes, `observe` stays the default, no new warning rules. The plugin records and reports; it does not speak. Warn mode stays available but is not recommended.
 
 ## Not a decision, but you asked for it
 

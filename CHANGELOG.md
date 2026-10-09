@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.2.0 (candidate on branch `v0.2`, not installed; the observe week runs 0.1.2)
+## 0.2.0 (2026-10-09, frozen: observe and report only)
+
+- Released from branch `v0.2`. No warning rules were added after the history study (DECISIONS.md D7 to D10): `observe` stays the default and warn mode is not recommended.
+- Analysis scripts for the study: `analysis/claim_study.py` (each claim labelled by the next test run on unchanged code), `analysis/hidden_failures.py` (runs with failures in the output but exit code 0), `analysis/baseline_cost.py` (time and tokens agents spend re-running tests on the old code).
 
 - Edits made through the shell count as code edits (DECISIONS.md D6). This covers `>` / `>>` into a code file (also `cat > f <<EOF`), `tee`, `sed -i` and `perl -i` on a code file, `git apply` / `patch`, and a python/node/ruby/perl heredoc script that writes a code file. The target is taken from `open(..., "w")`, `Path(...).write_text` or `writeFileSync`, with simple variable resolution. Edit and Write rules still apply: inside the project, not a test, not a doc. When one command both edits and runs tests, the order in the command decides which came first.
 - Warn condition: a code edit since the previous Stop, instead of in this turn (DECISIONS.md D1). Work by a background subagent that comes back as a new prompt now counts.
