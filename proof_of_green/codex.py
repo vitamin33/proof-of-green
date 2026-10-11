@@ -160,3 +160,25 @@ def text_of(value):
             if isinstance(value.get(key), str):
                 return value[key]
     return ""
+
+
+SHAPE_PATTERNS = {"exit_code_text": re.compile(r"exit(?:ed with)? code[:\s]+\d+", re.I),
+                  "session_id_text": re.compile(r"session(?: ID|_id)[\":\s]+\d+", re.I),
+                  "begin_patch": re.compile(r"\*\*\* Begin Patch")}
+
+
+def shape(value, depth=0):
+    """The structure of a hook field without its content: types, keys, lengths, known markers."""
+    if isinstance(value, dict):
+        return {k: shape(v, depth + 1) for k, v in list(value.items())[:20]} if depth < 3 else "dict"
+    if isinstance(value, list):
+        return [shape(value[0], depth + 1), "len=%d" % len(value)] if value else []
+    if isinstance(value, str):
+        marks = [k for k, rx in SHAPE_PATTERNS.items() if rx.search(value)]
+        try:
+            json.loads(value)
+            marks.append("json")
+        except ValueError:
+            pass
+        return "str(len=%d%s)" % (len(value), (", " + ",".join(marks)) if marks else "")
+    return type(value).__name__

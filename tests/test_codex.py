@@ -130,3 +130,20 @@ def test_edit_while_run_was_going_makes_it_stale(session):
     fire(session, "write_stdin", {"session_id": 9, "chars": ""}, {"exit_code": 0, "output": PASS4})
     session.stop("All tests pass.")
     assert session.verdicts()[-1]["claims"][0]["tier"] == "C"
+
+
+def test_debug_shapes_record_structure_not_content(session, data):
+    (data / "debug-shapes").write_text("")
+    secret = "pytest -q tests/test_customer_acme.py"
+    fire(session, "exec_command", {"cmd": secret}, "Process exited with code 0\nOutput:\n4 passed")
+    rows = (data / "shapes.jsonl").read_text()
+    assert "acme" not in rows and "4 passed" not in rows
+    rec = json.loads(rows.splitlines()[0])
+    assert rec["tool_name"] == "exec_command"
+    assert rec["tool_input"] == {"cmd": "str(len=%d)" % len(secret)}
+    assert "exit_code_text" in rec["tool_response"]
+
+
+def test_debug_shapes_off_by_default(session, data):
+    fire(session, "exec_command", {"cmd": "pytest -q"}, {"output": PASS4, "exit_code": 0})
+    assert not (data / "shapes.jsonl").exists()

@@ -193,12 +193,30 @@ def _codex_finish(p, process, res):
     ledger.append(sid, _agent(p, rec))
 
 
+def _debug_shape(p):
+    """Opt-in diagnostics: with a `debug-shapes` file in the data folder, record the structure of
+    each Codex tool payload (names, keys, types, lengths; never content), at most 300 lines."""
+    base = ledger.data_dir()
+    if not base or not os.path.exists(os.path.join(base, "debug-shapes")):
+        return
+    path = os.path.join(base, "shapes.jsonl")
+    if os.path.exists(path) and os.path.getsize(path) > 300 * 2000:
+        return
+    rec = {"tool_name": p.get("tool_name"), "event": p.get("hook_event_name"),
+           "tool_input": codex.shape(p.get("tool_input")), "tool_response": codex.shape(p.get("tool_response")),
+           "other_keys": sorted(k for k in p if k not in ("tool_input", "tool_response"))}
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "a") as fh:
+        fh.write(json.dumps(rec)[:2000] + "\n")
+
+
 def on_codex_tool(p):
     """Codex tools (v0.2): exec_command / shell take `cmd` or `command`; apply_patch takes a patch;
     write_stdin polls a command that was still running; in code mode one `exec` call runs
     JavaScript that calls those tools."""
     name = p.get("tool_name") or ""
     tin, resp = p.get("tool_input"), p.get("tool_response")
+    _debug_shape(p)
     text = codex.text_of(tin)
     if name == "apply_patch" or "*** Begin Patch" in text and name != "exec":
         _record_patch(p, text)
