@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-10-11, Codex fix)
+
+- Codex now sends each tool call to the hook on its own: shell commands as `Bash` with the output text only (no exit code; a failing command arrives as an ordinary PostToolUse) and `apply_patch` with the patch in a `command` field. 0.2.0 read neither: Codex patches were not recorded as edits (24 missed in two days of real use) and every Codex command counted as exit 0. Patches are now edits, and Codex runs are judged by the counts in their output, B with a reason when there are none. Checked live with a Codex run: failing test, patch, passing test, claim graded A.
+- Opt-in diagnostics: a `debug-shapes` file in the data folder makes the hooks record the structure of each tool payload (names, keys, types, lengths; never content) to `shapes.jsonl`, mode 600.
+
 ## 0.2.0 (2026-10-09, frozen: observe and report only)
 
 - Released from branch `v0.2`. No warning rules were added after the history study (DECISIONS.md D7 to D10): `observe` stays the default and warn mode is not recommended.
