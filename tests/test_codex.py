@@ -147,3 +147,43 @@ def test_debug_shapes_record_structure_not_content(session, data):
 def test_debug_shapes_off_by_default(session, data):
     fire(session, "exec_command", {"cmd": "pytest -q"}, {"output": PASS4, "exit_code": 0})
     assert not (data / "shapes.jsonl").exists()
+
+
+CODEX = {"transcript_path": "/Users/x/.codex/sessions/2026/10/11/rollout-x.jsonl", "turn_id": "t1"}
+
+
+def fire_codex(session, name, tin, resp, event="PostToolUse:codex"):
+    return session.fire(event, dict(CODEX, hook_event_name="PostToolUse", tool_name=name,
+                                    tool_input=tin, tool_response=resp))
+
+
+def test_codex_apply_patch_in_command_field(session):
+    """Codex sends apply_patch as {"command": "<patch>"} with a text response."""
+    session.prompt()
+    fire_codex(session, "apply_patch", {"command": PATCH}, "Success. Updated the following files:\nM src/calc.py\nexit code: 0")
+    edits = [(r["path"], r["is_test"]) for r in session.records() if r["kind"] == "edit"]
+    assert edits == [("src/calc.py", False), ("tests/test_calc.py", True)]
+
+
+def test_codex_bash_without_exit_code_is_judged_by_counts(session):
+    """Codex sends nested exec_command calls as Bash with the output only, never the exit code."""
+    session.prompt()
+    session.edit()
+    fire_codex(session, "Bash", {"command": "python3 -m pytest -q"}, "F...\n1 failed, 3 passed in 0.1s",
+               event="PostToolUse:bash")
+    session.stop("All tests pass.")
+    assert session.verdicts()[-1]["claims"][0]["tier"] == "D"
+    fire_codex(session, "Bash", {"command": "python3 -m pytest -q"}, "4 passed in 0.1s", event="PostToolUse:bash")
+    session.stop("All tests pass.")
+    assert session.verdicts()[-1]["claims"][0]["tier"] == "A"
+
+
+def test_codex_bash_with_no_counts_is_b_not_a_pass(session):
+    session.prompt()
+    session.edit()
+    fire_codex(session, "Bash", {"command": "npm test"}, "", event="PostToolUse:bash")
+    run = [r for r in session.records() if r["kind"] == "test_run"][-1]
+    assert run["exit_code"] is None and run["exit_unknown"]
+    session.stop("All tests pass.")
+    v = session.verdicts()[-1]["claims"][0]
+    assert v["tier"] == "B"

@@ -156,7 +156,7 @@ def text_of(value):
     if isinstance(value, str):
         return value
     if isinstance(value, dict):
-        for key in ("input", "code", "patch", "source", "script"):
+        for key in ("input", "code", "patch", "source", "script", "command"):  # Codex apply_patch: {"command": patch}
             if isinstance(value.get(key), str):
                 return value[key]
     return ""

@@ -131,11 +131,20 @@ def on_bash(p):
     _record_command(p, p, command)
 
 
+def _from_codex(p):
+    return "turn_id" in p  # Codex hook payloads carry the turn id; Claude Code's do not
+
+
 def _record_command(p, payload, command, pending=None):
     """Write the test_run / other record for one shell command, plus edits it made (D6), in order.
     `pending`: the command was still running when its tool call returned (Codex)."""
     test_command = os.environ.get("CLAUDE_PLUGIN_OPTION_TEST_COMMAND")
     rec = _agent(p, bashparse.parse_bash(payload, test_command))
+    if _from_codex(p) and isinstance(payload.get("tool_response"), str):
+        # Codex hands hooks the command's output only, never its exit code (a failing command
+        # arrives as an ordinary PostToolUse): judge the run by the counts in the output.
+        rec["exit_code"] = None
+        rec["exit_unknown"] = True
     if pending and rec["kind"] == "test_run":
         rec.update(pending, pending=True, exit_code=None)
     rec["event"] = payload.get("hook_event_name") or p.get("hook_event_name") or "PostToolUse"

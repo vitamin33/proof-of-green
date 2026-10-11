@@ -20,7 +20,7 @@ def last_edit_seq(records):
 
 
 def _failed(run):
-    if run.get("exit_masked") or run.get("pending"):
+    if run.get("exit_masked") or run.get("pending") or run.get("exit_unknown"):
         # piped without pipefail, or still running when the tool call returned (Codex):
         # the exit code is not the tests'; only the counts can say "failed"
         return (run.get("failed") or 0) > 0
@@ -66,6 +66,8 @@ def evidence(records, claim_type):
     good = [r for r in after if not r.get("flags") and not _failed(r) and r.get("collected") != 0]
     if not good:
         return "D", "last test run collected 0 tests"
+    if all(r.get("exit_unknown") and r.get("collected") is None for r in good):
+        return "B", "test result not visible: Codex does not pass exit codes to hooks and the output shows no counts"
     if all(r.get("pending") and r.get("collected") is None for r in good):
         return "B", "test result not visible: the run was still going when its tool call returned"
     if all(r.get("exit_masked") and r.get("collected") is None for r in good):
