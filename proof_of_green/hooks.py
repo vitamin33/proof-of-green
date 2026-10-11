@@ -97,6 +97,7 @@ def on_user_prompt(p):
 
 
 def on_edit(p):
+    _debug_shape(p)
     tin = p.get("tool_input") or {}
     path = tin.get("file_path") or tin.get("path") or ""
     if not isinstance(path, str) or not path:
@@ -124,6 +125,7 @@ def _bash_edits(p, command, project):
 
 
 def on_bash(p):
+    _debug_shape(p)
     tin = p.get("tool_input") if isinstance(p.get("tool_input"), dict) else {}
     command = tin.get("command") if isinstance(tin.get("command"), str) else ""
     _record_command(p, p, command)
@@ -195,7 +197,7 @@ def _codex_finish(p, process, res):
 
 def _debug_shape(p):
     """Opt-in diagnostics: with a `debug-shapes` file in the data folder, record the structure of
-    each Codex tool payload (names, keys, types, lengths; never content), at most 300 lines."""
+    each tool payload (Codex sends its nested calls as Bash / Edit too) (names, keys, types, lengths; never content), at most 300 lines."""
     base = ledger.data_dir()
     if not base or not os.path.exists(os.path.join(base, "debug-shapes")):
         return
