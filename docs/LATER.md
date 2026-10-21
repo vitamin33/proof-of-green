@@ -24,3 +24,7 @@ Found while building v0:
 - Ledger size. Each hook reads the whole session file (about 50 ms per hook at 1,000 records). A very long session may need a small state file or a tail read.
 - Windows. Locking uses `fcntl`; on Windows appends still work but `seq` can repeat under concurrent subagents.
 - `marketplace.json` in the repo, so people can install from GitHub before the directory listing.
+
+Found in the observe-week data (2026-10-21):
+
+- Edits in a sibling folder do not count as code. The project is the folder the session started in, and a file counts as code only when it sits under that folder. In 10 days of data, 102 of 2,046 Edit/Write calls (5%) went to a folder next to the session folder, such as a second checkout of the same client's repos. Those are real code changes, so claims in such sessions grade a little better than they should. The other outside edits (9% to `~/.claude` memory and plans, 6% to scratchpad) are right to skip. A fix would need a way to say which sibling folders belong to the project, for example a setting or `git remote` names.
