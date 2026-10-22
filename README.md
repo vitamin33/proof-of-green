@@ -12,6 +12,10 @@ That is a real run on a small test repo in warn mode, shortened. Claude ran the 
 
 This release starts in observe mode: it records and stays silent. See Settings to turn the warnings on.
 
+## For a team
+
+If you lead a team on coding agents and want the same numbers for your developers, see [docs/AUDIT.md](docs/AUDIT.md). One command, runs on each laptop, sends nothing anywhere.
+
 ## Install
 
 It is not in the plugin directory yet. Install it from this repo:
