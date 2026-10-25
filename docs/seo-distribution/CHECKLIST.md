@@ -46,3 +46,9 @@ File: `docs/seo-distribution/linkedin-featured.md`. Pick one of the three Featur
 ## 6. Google Search Console
 
 Being handled in the main session: sitemap submission and index requests for the top URLs. The domain property `sc-domain:serbyn.io` is owned by another account; if you know which one, add serbyn.vitalii@gmail.com as a user there, or ignore it and keep using the `https://serbyn.io/` property.
+
+## Status 2026-10-25 (evening)
+
+Done from the owner's Chrome: Bing Webmaster Tools verified via meta tag, sitemap submitted (Processing); Vercel Web Analytics enabled (Hobby, data starts now); both dev.to reposts published with canonical to serbyn.io; comment posted under the 249-sessions post; both README PRs merged; seo/round1 deployed to production.
+
+Open: IndexNow returns HTTP 403 for the key `3d40b1ad44886b9950c3fb0356cf6ebc` on both api.indexnow.org and bing.com, although the key file is served 200 text/plain. The first production build got 202. Check the IndexNow page in Bing Webmaster Tools in a day; if still 403, generate the key inside Webmaster Tools and replace the file. LinkedIn post text is in linkedin-post.txt (owner publishes). Google URL Inspection quota: request /about and the four new answer pages on 2026-10-26. PostHog: the only project this account can see is Crest (usecrest.io); serbyn.io events are not in it, so Vercel Analytics is the traffic source going forward.
