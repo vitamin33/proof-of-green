@@ -12,6 +12,8 @@ That is a real run on a small test repo in warn mode, shortened. Claude ran the 
 
 This release starts in observe mode: it records and stays silent. See Settings to turn the warnings on.
 
+What a week of real sessions showed, with the numbers: [I built a tool to catch agents saying "tests pass" without proof. It was wrong 43 times out of 46](https://serbyn.io/blog/proof-of-green-checks-every-done). Written by [Vitalii Serbyn](https://serbyn.io).
+
 ## For a team
 
 If you lead a team on coding agents and want the same numbers for your developers, see [docs/AUDIT.md](docs/AUDIT.md). One command, runs on each laptop, sends nothing anywhere.
@@ -98,7 +100,7 @@ Each claim gets a tier from what happened after the last code edit in the sessio
 
 ## Team report (paid, coming)
 
-If you want the same numbers across a team, per repo and per week, I am building a paid team report. The plugin itself stays free and complete without it. Details and early access: https://serbyn.io/proof-of-green?utm_source=github&utm_medium=readme
+If you want the same numbers across a team, per repo and per week, I am building a paid team report. The plugin itself stays free and complete without it. Details and early access: https://serbyn.io/audit?utm_source=github&utm_medium=readme
 
 ## Privacy and your data
 
