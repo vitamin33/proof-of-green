@@ -58,3 +58,11 @@ Open: IndexNow returns HTTP 403 for the key `3d40b1ad44886b9950c3fb0356cf6ebc` o
 - Google: both long posts (proof-of-green, enforced-checkpoint) show "URL is on Google" in Search Console, so the dev.to canonical copies came after the originals were indexed. Nothing to undo.
 - IndexNow: a key generated in Bing's own generator (9b2cc94f75734fdbad0f12e7cd94d7bd) still gets HTTP 403 from api.indexnow.org and bing.com, while Seznam accepts the same key with 200. The 403 is on Bing's side for this host. Workaround applied: all 28 site URLs submitted through Bing Webmaster Tools, URL Submission (quota 100 per day). The post-build ping stays in place and never fails the build.
 - Google URL Inspection: quota for the day is used; /about and the four answer pages are in the submitted sitemap and get requested on 2026-10-26. The domain property cannot be verified from here: DNS is at Namecheap, not Vercel.
+
+## Status 2026-10-26
+
+Run at 10:07 EET (01:07 PDT) by the scheduled task.
+
+- Google URL Inspection: /about, /blog/does-codex-cli-have-hooks and /blog/claude-code-stop-hook-test-after-last-edit already show "URL is on Google" (indexed), so no request was sent for them. /blog/what-is-a-false-green-ai-coding-agent is "URL is unknown to Google"; Request indexing ran the live test and then answered "Quota Exceeded". /blog/audit-claude-code-codex-session-logs-locally is also unknown to Google and was not requested. The quota had not reset after midnight Pacific, so it looks like a rolling 24-hour window: retry these two after 2026-10-26 evening EET.
+- Sitemap: /sitemap.xml status Success, last read Oct 25, 26 discovered pages. URL Inspection still says "No referring sitemaps detected" for the two unknown pages, which should change on the next sitemap read.
+- IndexNow: `node scripts/indexnow.mjs` printed `submitted 30 URLs: HTTP 403`. Same Bing-side 403 as yesterday; Bing Webmaster Tools URL Submission stays the workaround.
