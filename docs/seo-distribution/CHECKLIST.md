@@ -67,3 +67,9 @@ Run at 10:07 EET (01:07 PDT) by the scheduled task.
 - Sitemap: /sitemap.xml status Success, last read Oct 25, 26 discovered pages. URL Inspection still says "No referring sitemaps detected" for the two unknown pages, which should change on the next sitemap read.
 - IndexNow: `node scripts/indexnow.mjs` printed `submitted 30 URLs: HTTP 403`. Same Bing-side 403 as yesterday; Bing Webmaster Tools URL Submission stays the workaround.
 - 17:42 EET retry (scheduled task): /blog/what-is-a-false-green-ai-coding-agent is still "URL is not on Google"; Request indexing ran the live test and again answered "Quota Exceeded". /blog/audit-claude-code-codex-session-logs-locally was not tried. So the quota was still out about 24h40m after it ran out on 2026-10-25 ~17:00 EET, which does not fit a plain rolling 24-hour window either. Next try: 2026-10-27 morning, or ask the owner to request both from their own browser.
+
+## Status 2026-10-28
+
+- Google: indexing requested by hand for /blog/what-is-a-false-green-ai-coding-agent and /blog/audit-claude-code-codex-session-logs-locally (quota was free again). Performance, last 7 days: 7 impressions, 0 clicks; impressions on /, the proof-of-green post and the self-verification post. Page indexing report still shows 1 indexed page (report lags; URL Inspection says the posts are on Google).
+- Bing: sitemap Success, 30 URLs discovered, Site Explorer shows no indexed URLs yet.
+- Vercel Analytics (enabled 2026-10-26): 4 visitors in the period, no referrers recorded. dev.to: both reposts under 25 views, 1 reaction, 2 comments on the first. GitHub proof-of-green: 0 views in 14 days.
